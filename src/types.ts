@@ -118,6 +118,8 @@ export type LoadedSource =
 export interface AlignResult {
   noToFull: Map<number, number>
   inverse: Map<number, number>
+  /** 对齐时的池指纹 (行数+首末行文本) — 指纹变化 = 池内容漂移, 缓存失效。 */
+  fp: string
   lineCount: number
   stepKey: string
   stats: { domLines: number; matched: number; unmatched: number }
@@ -130,6 +132,11 @@ export interface AdapterCtx {
 
 export interface Adapter {
   name: string
+  /**
+   * true = match 依赖渐进渲染的 DOM (SPA/Turbo), boot 时未就绪值得有界重探
+   * (500ms × 20); false = match 时序稳定 (如纯 URL 判定), miss 即退出。
+   */
+  readonly deferProbe: boolean
   /** 页面识别 (零 IO)。 */
   match(doc: Document, loc: Location): boolean
   /** 数据外置源清单 (差异点: forgejo=整 job 单源; github=每 step 一源)。 */
@@ -146,6 +153,8 @@ export interface Adapter {
   linesIn(subtree: Element): LineEntry[]
   /** 外置状态 key (语义由 adapter 定)。 */
   lineKey(stepKey: string, no: number): string
+  /** 池内外置状态 key 的公共前缀 — 池内容漂移时按前缀作废旧标注 (M3)。 */
+  poolKeyPrefix(stepKey: string): string
   /** 块 → 行标注 (forgejo 经对齐器; github 直映)。 */
   annotateStep(
     src: LoadedSource,

@@ -5,12 +5,7 @@
 // 不持有任何页面选择器知识 — 选择器全在 adapter (lineKey 的语义也由 adapter 定义)。
 
 import type { Intent } from '../types.ts'
-
-export const INTENT_COLOR: Record<Intent, string> = {
-  failure: '#cf222e',
-  warning: '#9a6700',
-  info: '#0969da',
-}
+import { INTENT_COLOR } from './intent.ts'
 
 export interface Annotation {
   sig: string
@@ -59,12 +54,31 @@ export class InlineInjector {
     if (!on) this.clearAll()
   }
 
+  /** 剥除单个行元素的全部注入痕迹 (含幂等签名 + controller 写入的 lskKey)。 */
+  private static strip(el: HTMLElement): void {
+    el.classList.remove('lsk-inline')
+    delete el.dataset.lsk
+    delete el.dataset.lskKey
+    delete el.dataset.lskTip
+    el.style.removeProperty('--lsk-c')
+    // position 仅清我们设的 relative; 若页面本就 relative 则误清无害 (布局无依赖)
+    if (el.style.position === 'relative') el.style.removeProperty('position')
+  }
+
   /** 清除全部注入痕迹 (开关 off / 规则刷新重注入前的全清)。 */
   clearAll(): void {
     this.styleEl?.ownerDocument.querySelectorAll('.lsk-inline').forEach((el) => {
-      el.classList.remove('lsk-inline')
-      delete (el as HTMLElement).dataset.lsk
-      ;(el as HTMLElement).style.removeProperty('--lsk-c')
+      InlineInjector.strip(el as HTMLElement)
+    })
+  }
+
+  /**
+   * 清除单个池内的注入痕迹 (含签名) — 池内容漂移 (forgejo grown 行位移) 后
+   * 由 controller 调用, 强制整池按新对齐重注入; scope 限定池子, 其他池零打扰。
+   */
+  clearPool(pool: Element): void {
+    pool.querySelectorAll('.lsk-inline').forEach((el) => {
+      InlineInjector.strip(el as HTMLElement)
     })
   }
 

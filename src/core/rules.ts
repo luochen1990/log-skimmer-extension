@@ -10,6 +10,7 @@ import {
   ENGINE_VERSION,
   GM_KEYS,
   RULES_BUNDLE_URL,
+  RULES_FETCH_TIMEOUT_MS,
   RULES_STALE_DAYS,
 } from '../config.ts'
 import type { GmEnv } from '../gm.ts'
@@ -126,7 +127,7 @@ export class RulesStore {
     const url = await this.bundleUrl()
     let text: string
     try {
-      const resp = await this.gm.crossOriginFetch(url, 15_000)
+      const resp = await this.gm.crossOriginFetch(url, RULES_FETCH_TIMEOUT_MS)
       text = resp.text
     } catch (e) {
       return {
@@ -163,5 +164,13 @@ export class RulesStore {
   /** 手动刷新 (强制网络); 失败返回错误结果, 调用方保留旧 bundle 继续工作。 */
   async refresh(): Promise<RulesLoadResult> {
     return this.fetchNetwork()
+  }
+
+  /**
+   * 作废缓存 — bundle 通过了结构校验但被引擎拒收 (如 yaml 语法坏/引擎不兼容) 时
+   * 调用 (缓存投毒自愈: 下次 load 无缓存 → 重拉)。
+   */
+  async invalidateCache(): Promise<void> {
+    await this.gm.deleteValue(GM_KEYS.bundle)
   }
 }

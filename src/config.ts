@@ -24,6 +24,9 @@ export const GM_KEYS = {
   bundleUrlOverride: 'lsk:bundleUrl',
 } as const
 
+/** 规则 bundle 网络拉取的超时 (ms)。 */
+export const RULES_FETCH_TIMEOUT_MS = 15_000
+
 /** 同源日志 fetch 的超时 (ms)。 */
 export const LOG_FETCH_TIMEOUT_MS = 20_000
 

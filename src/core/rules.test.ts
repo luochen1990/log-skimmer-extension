@@ -1,8 +1,10 @@
 // rules.test.ts — bundle 校验/版本协商/wasm 入参格式的单元测试 (跨仓契约消费侧)。
 import { deepEqual, equal } from 'node:assert/strict'
 import { test } from 'node:test'
+import { GM_KEYS } from '../config.ts'
+import type { GmEnv } from '../gm.ts'
 import type { RulesBundle } from '../types.ts'
-import { rulesJsonForWasm, validateBundle } from './rules.ts'
+import { RulesStore, rulesJsonForWasm, validateBundle } from './rules.ts'
 
 function bundle(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -70,4 +72,24 @@ test('rulesJsonForWasm: [[path, yaml]] 形态 (ABI 契约)', () => {
     ['t/a.yaml', 'id: a'],
     ['t/b.yaml', 'id: b'],
   ])
+})
+
+test('RulesStore.invalidateCache: 作废 GM bundle 键 (缓存投毒自愈, M2)', async () => {
+  const store = new Map<string, string>()
+  const gm: GmEnv = {
+    getValue: async (k) => store.get(k),
+    setValue: async (k, v) => {
+      store.set(k, v)
+    },
+    deleteValue: async (k) => {
+      store.delete(k)
+    },
+    crossOriginFetch: async () => {
+      throw new Error('unused in this test')
+    },
+    managed: true,
+  }
+  await gm.setValue(GM_KEYS.bundle, JSON.stringify({ bundle: bundle(), fetchedAt: 0 }))
+  await new RulesStore(gm).invalidateCache()
+  equal(await gm.getValue(GM_KEYS.bundle), undefined)
 })

@@ -36,6 +36,16 @@ export interface AlignStepResult {
   stats: { domLines: number; matched: number; unmatched: number }
 }
 
+/**
+ * 池指纹 = 行数 + 全部行文本 — contentAligned 池的漂移哨兵。
+ * 同数异容 (重渲染换文本) 也能察觉, 优于纯行数; 取全量拼接而非首末行采样
+ * (首末采样对中段漂移有盲区)。controller (grown 判定) 与 forgejo (对齐缓存
+ * 失效) 必须用同一公式, 故收敛在此单点。
+ */
+export function poolFingerprint(lines: LineEntry[]): string {
+  return `${lines.length} ${lines.reduce((acc, l) => acc + l.text, '')}`
+}
+
 export function alignStep(
   domLines: LineEntry[],
   fullLines: string[],
@@ -45,7 +55,15 @@ export function alignStep(
   const fullNorm = fullLines.map(normLine)
   const noToFull = new Map<number, number>()
   const used = new Set<number>()
+  // 首行锚定: DOM 行集可能对应全量的任意连续段 (多 step: 非首 step 的段在中部;
+  // 重渲染: 段起点漂移), 单调游标从 0 起步追不上中段 — 先全局定位首行作游标初值。
   let cursor = 0
+  const first = domLines[0]
+  if (first) {
+    const t = normLine(first.text)
+    const anchor = fullNorm.findIndex((l, i) => l === t && !used.has(i))
+    if (anchor >= 0) cursor = anchor
+  }
   let matched = 0
   let unmatched = 0
   for (const dl of domLines) {

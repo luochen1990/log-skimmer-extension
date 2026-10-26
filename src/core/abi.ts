@@ -5,7 +5,8 @@
 //   rules 入参 = JSON `[[源名, YAML 文本], ...]`
 // 纪律 (T1 踩坑, 全部沿用):
 //   ① JS string.length ≠ UTF-8 字节长 → 一律 encode 后按字节长 alloc;
-//   ② 三段入参先全部 alloc 再统一写入 (memory 增长会 detach 旧视图);
+//   ② 逐段 "alloc→建视图→写入" 安全 (视图建立在 alloc 之后); 但任何跨 wasm 调用
+//     持有的旧视图会被 memory 增长 detach → 每次读返回值前必须重建视图;
 //   ③ free 的 cap 必须与申请一致; skim_json 异常路径也要归还入参缓冲。
 
 import type { SkimEnvelope } from '../types.ts'
@@ -21,11 +22,18 @@ export interface SkimAbi {
   skimJson(rulesJson: string, fileName: string, logText: string): SkimEnvelope
 }
 
+/** compile 缓存 (见 loadEngine; 引用比较判定同一构建产物)。 */
+let compiled: { bytes: Uint8Array<ArrayBuffer>; module: WebAssembly.Module } | null = null
+
 export async function loadEngine(wasmBytes: Uint8Array<ArrayBuffer>): Promise<SkimAbi> {
+  // 模块级 compile 缓存 (bytes 引用比较): 同一份 wasm 重复建引擎 (规则刷新) 只
+  // compile 一次, 每次新建 Instance (实例持规则状态, 不可复用)。
+  if (compiled === null || compiled.bytes !== wasmBytes) {
+    compiled = { bytes: wasmBytes, module: await WebAssembly.compile(wasmBytes) }
+  }
   // compile + new Instance (而非 instantiate): lib.dom 的 instantiate 重载对
   // 两参形态的类型推断不稳定; compile 路径类型无歧义且语义等价。
-  const module = await WebAssembly.compile(wasmBytes)
-  const instance = new WebAssembly.Instance(module, {})
+  const instance = new WebAssembly.Instance(compiled.module, {})
   const ex = instance.exports as unknown as WasmExports
   const enc = new TextEncoder()
   const dec = new TextDecoder('utf-8')

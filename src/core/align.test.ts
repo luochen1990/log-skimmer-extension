@@ -1,8 +1,8 @@
 // align.test.ts — 对齐器单元测试 (归一化四件套 + 两指针单调对齐性质)。
-import { deepEqual, equal } from 'node:assert/strict'
+import { deepEqual, equal, notEqual } from 'node:assert/strict'
 import { test } from 'node:test'
 import type { LineEntry } from '../types.ts'
-import { alignStep, normLine } from './align.ts'
+import { alignStep, normLine, poolFingerprint } from './align.ts'
 
 function entry(no: number, text: string): LineEntry {
   return { no, text, el: {} as HTMLElement }
@@ -55,4 +55,28 @@ test('alignStep: DOM 侧带时间戳/全量侧双时间戳 (forgejo 实形态)',
   const dom = [entry(1, '2026-01-01T00:00:01Z build ok'), entry(2, 'next')]
   const r = alignStep(dom, full)
   equal(r.stats.matched, 2)
+})
+
+test('poolFingerprint: 行数/任一行文本变化 → 指纹变化 (同数异容可察)', () => {
+  const a = [entry(1, 'x'), entry(2, 'y'), entry(3, 'z')]
+  equal(poolFingerprint(a), poolFingerprint([entry(9, 'x'), entry(8, 'y'), entry(7, 'z')])) // no 不参与 (纯内容指纹)
+  notEqual(poolFingerprint(a), poolFingerprint([entry(1, 'x'), entry(2, 'y')])) // 行数变
+  notEqual(poolFingerprint(a), poolFingerprint([entry(1, 'x'), entry(2, 'M'), entry(3, 'z')])) // 中段变 (同数异容)
+  equal(poolFingerprint([]), '0 ') // 空池退化形态稳定
+})
+
+test('alignStep: 中段子序列可对齐 (首行锚定 — 多 step 非首段/段起点漂移形态)', () => {
+  const full = ['head1', 'head2', 'a', 'b', 'c', 'd', 'tail1', 'tail2']
+  const dom = [entry(1, 'c'), entry(2, 'd')]
+  const r = alignStep(dom, full)
+  equal(r.noToFull.get(1), 4)
+  equal(r.noToFull.get(2), 5)
+  equal(r.stats.matched, 2)
+})
+
+test('alignStep: 首行锚定不影响前缀段 (锚点=0 退化)', () => {
+  const full = ['a', 'b', 'c']
+  const r = alignStep([entry(1, 'a'), entry(2, 'b')], full)
+  equal(r.noToFull.get(1), 0)
+  equal(r.noToFull.get(2), 1)
 })
