@@ -8,10 +8,16 @@
 - `src/` — TypeScript (严格模式, ESM 源 → esbuild IIFE 产物):
   - `types.ts` — 协议类型 SSOT: SkimResult JSON (引擎 serde 镜像) / bundle 契约 / Adapter 接口 / 诊断与报告面。
   - `config.ts` — 常量 SSOT (bundle URL / 版本 / GM 键 / 超时)。
-  - `gm.ts` — Tampermonkey GM_* 门面 (唯一管理器接触点; 无管理器自动降级 localStorage+fetch)。
-  - `controller.ts` — 编排: 适配器探测 → wasm (解压+版本读取) → 规则 (版本协商用 wasm 侧版本) → 取数+skim → 呈现双轨 → observer 重放。
-  - `core/` — 页面无关核心: `abi.ts` (wasm 薄壳, T1 ABI 纪律, 模块级 compile 缓存,
-    `readEngineVersion` = 版本协商的 wasm 侧事实来源) / `engine.ts` / `align.ts`
+  - `host.ts` — 宿主服务抽象 (storage + 跨域 GET): 三实现按探测择一
+    (userscript GM_* → chrome.storage.local+fetch → localStorage 降级), GM 优先于 chrome
+    (Tampermonkey 沙箱内 chrome.storage 指 TM 自身存储)。
+  - `sw.ts` — MV3 background service worker 入口: 扩展形态的 wasm 计算引擎宿主
+    (消息协议 `{t:'v'}`/`{t:'skim'}`, 与 `core/abi-rpc.ts` 成对 SSOT; engine.wasm 包内裸文件)。
+  - `controller.ts` — 编排: 适配器探测 → **abi 分派** (extension=SW RPC / 其余=本地 wasm)
+    → 规则 (版本协商用 abi 侧版本) → 取数+skim → 呈现双轨 → observer 重放。
+  - `core/` — 页面无关核心: `abi.ts` (wasm 薄壳, T1 ABI 纪律, 模块级 compile 缓存;
+    `SkimAbi.skimJson` 统一 async — RPC 通道兼容) / `abi-rpc.ts` (SkimAbi 的 SW 消息通道
+    实现, 扩展形态专用) / `engine.ts` / `align.ts`
     (forgejo 两指针对齐: 归一化四件套 + **首行锚定** — DOM 行集可对应全量任意连续段,
     非仅前缀; `poolFingerprint` 池漂移哨兵 SSOT) / `rules.ts`
     (bundle 校验/缓存/版本协商/作废) / `semver.ts` / `intent.ts` (intent 优先级/配色/
@@ -19,6 +25,16 @@
     `overlay.ts` (摘要面板)。
   - `adapters/` — 页面知识孤岛: `github.ts` (data-log-url + data-index 直映, deferProbe) /
     `forgejo.ts` (job API + 对齐映射)。新增 CI 平台 = 新增一个 adapter 文件。
+
+### CSP 实测事实 (2026-10-26/27, 形态架构依据)
+
+github.com 页面 CSP (`script-src github.githubassets.com 'sha256-…'`, 无 `wasm-unsafe-eval`)
+拒绝 **页面世界与 content script isolated world 双方**的 `WebAssembly.compile` (后者为
+真实扩展环境实测, Playwright + --load-extension; 推翻 "isolated world 不受页面 CSP 约束"
+的预判)。因此扩展形态的 wasm 计算必须且只能在 background service worker (扩展自身 CSP,
+manifest `extension_pages` 显式放行 `wasm-unsafe-eval`)。e2e 的 extension.spec.ts 严格
+CSP fixture 用例 = 防 "wasm 挪回页面世界" 的回归锚。userscript 形态在 github.com 结构性
+不可行, 仅作 CSP 宽松环境 (自托管 forgejo 等) 备选。
 - `fixtures/` — e2e 基底: `github/` (T4 仿真: 虚拟化 + 重渲染 + 真实语料) /
   `forgejo/` (M3: 手工 .job-step-logs + append/rewrite 渐进渲染控制, API 由 e2e route
   拦截 — 兼作活体实例停运退路) / `degrade/` (无端点/403/404/非 CI 页) /
@@ -77,7 +93,7 @@
 
 | 契约                                                                                | SSOT 位置                                               | 本仓消费点                                             |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------ |
-| wasm ABI (`wasm_alloc`/`wasm_free`/`wasm_skim_json`/`wasm_engine_version`, 4B 前缀) | 引擎仓 `log-skimmer-wasm` crate (feat-wasm 分支, M1)    | `src/core/abi.ts` + 构建期源构建 (`scripts/build.mjs`) |
+| wasm ABI (`wasm_alloc`/`wasm_free`/`wasm_skim_json`/`wasm_engine_version`, 4B 前缀) | 引擎仓 `log-skimmer-wasm` crate (master, PR #101)       | `src/core/abi.ts` + 构建期源构建 (`scripts/build.mjs`) |
 | 规则 bundle 格式 + 发布端点                                                         | rules 仓生成管线 (`reports` 分支)                       | `src/core/rules.ts` + `src/config.ts`                  |
 | SkimResult JSON 协议                                                                | 引擎仓 serde (CLI --json 同协议)                        | `src/types.ts`                                         |
 | GitHub job 页 DOM 事实                                                              | spike T3 DOM-REPORT (登录墙内未实测项见 github.ts TODO) | `src/adapters/github.ts`                               |

@@ -1,11 +1,13 @@
 # log-skimmer-web
 
-> log-skimmer 生态的浏览器交付面: 一个 Tampermonkey userscript, 在 GitHub Actions / Forgejo
-> 的 CI 失败日志页上做**行级失败高亮 + skim 摘要面板** — 万行日志只看有证据的那几十行。
+> log-skimmer 生态的浏览器交付面: 一个 Chrome 扩展 (MV3) + Tampermonkey userscript 备选,
+> 在 GitHub Actions / Forgejo 的 CI 失败日志页上做**行级失败高亮 + skim 摘要面板** —
+> 万行日志只看有证据的那几十行。
 
-[log-skimmer](https://github.com/luochen1990/log-skimmer) 引擎 (Rust) 编译为 wasm 内嵌于脚本,
+[log-skimmer](https://github.com/luochen1990/log-skimmer) 引擎 (Rust) 编译为 wasm,
 在浏览器本地对全量日志执行 skim; 规则集从 rules 仓发布的 bundle 拉取并缓存。
-**安装即完整离线** — wasm 引擎内嵌于脚本, 规则 bundle 是唯一网络依赖 (且缓存后离线可用)。
+**Chrome 扩展形态计算在 background service worker (扩展自身 CSP), 安装即完整离线** —
+规则 bundle 是唯一网络依赖 (且缓存后离线可用)。
 
 ## 这是什么 / 为什么
 
@@ -18,19 +20,28 @@ CI 失败日志动辄上万行, 真正的失败证据往往只有几十行。log
 - **降级而非失败** — 登录墙 / 403 / 规则拉取失败时, 面板给出「哪个环节 / 为什么 / 怎么办」,
   绝不破坏页面。
 
-## 安装
+## 安装 (Chrome 扩展 — 推荐, github.com 唯一可靠形态)
 
-1. 浏览器装 [Tampermonkey](https://www.tampermonkey.net/) (或其他支持 `GM_xmlhttpRequest`
-   - `GM.*` storage 的脚本管理器);
-2. 用 raw 链接安装本仓产物 `dist/log-skimmer.user.js`
-   (从仓库下载后拖入 Tampermonkey, 或以 `@updateURL` 指向 raw 地址);
+1. 下载本仓产物 `dist/log-skimmer-extension.zip` 并解压 (或直接用 `dist/extension/` 目录);
+2. Chrome 打开 `chrome://extensions` → 右上角开启**开发者模式** → **加载已解压的扩展程序**
+   (Load unpacked) → 选择 `extension/` 目录;
 3. 打开任一 GitHub Actions job 页
    (`https://github.com/<owner>/<repo>/actions/runs/<run>/job/<job>`)
-   或 Forgejo job 页 (`/<owner>/<repo>/actions/runs/<run>/jobs/<idx>`) —
-   右下角出现 **skim** 按钮。
+   — 右下角出现 **skim** 按钮。
 
-无脚本管理器也能跑 (storage 降级为 localStorage, 规则拉取受 CORS 限制可能失败) —
-但推荐 Tampermonkey。
+> [!NOTE]
+> 为何 github.com 必须用扩展: github.com 页面 CSP 为 `script-src …` (无 `wasm-unsafe-eval`),
+> 拒绝页面世界的 WebAssembly 编译 — userscript (Tampermonkey 注入) 在此结构性不可行
+> (实测 2026-10-26)。MV3 扩展的 wasm 跑在 background service worker (扩展自身 CSP,
+> 不受页面 CSP 约束), content script 经消息通道调用 — 这是唯一可靠形态。
+
+## 安装 (Tampermonkey userscript — CSP 宽松环境备选, 如自托管 Forgejo)
+
+1. 浏览器装 [Tampermonkey](https://www.tampermonkey.net/);
+2. 下载 `dist/log-skimmer.user.js` 拖入 Tampermonkey 安装;
+3. 打开 Forgejo job 页 (`/<owner>/<repo>/actions/runs/<run>/jobs/<idx>`) — 右下角出现 **skim** 按钮。
+
+无脚本管理器也能跑 (storage 降级为 localStorage, 规则拉取受 CORS 限制可能失败)。
 
 ## 使用
 
