@@ -9,7 +9,9 @@
 // 坐标映射: skim 块在全量日志行坐标; DOM 行是 step 内局部行号 → alignStep 两指针对齐
 //           (contentAligned: 行数变化 = 对齐失效, 增量 sync 整池重对齐)。
 
-import { alignStep } from '../core/align.ts'
+import { LOG_FETCH_TIMEOUT_MS } from '../config.ts'
+import { alignStep, poolFingerprint } from '../core/align.ts'
+import { topFragment } from '../core/intent.ts'
 import type { Adapter, AdapterCtx, AlignResult, LoadedSource, LogSource, OutputBlock } from '../types.ts'
 
 interface ForgejoJob {
@@ -38,6 +40,8 @@ export function parseForgejoLoc(loc: Location): {
 export const forgejoAdapter = {
   name: 'forgejo',
   contentAligned: true,
+  // match 纯 URL 判定 (时序稳定) → miss 即退出, 无需 DOM 重探。
+  deferProbe: false,
 
   match(_doc: Document, loc: Location) {
     return /\/actions\/runs\/\d+\/jobs\/\d+/.test(loc.pathname)
@@ -48,6 +52,7 @@ export const forgejoAdapter = {
     const { owner, repo, runId, jobIndex } = parseForgejoLoc(loc)
     const resp = await fetch(`/api/v1/repos/${owner}/${repo}/actions/runs/${runId}/jobs`, {
       credentials: 'same-origin',
+      signal: AbortSignal.timeout(LOG_FETCH_TIMEOUT_MS),
     })
     if (!resp.ok) {
       throw new Error(
@@ -75,17 +80,19 @@ export const forgejoAdapter = {
   },
 
   /**
-   * 块(全量坐标) → step 内行标注: 两指针对齐 (缓存 per stepKey, 行数变化即重算 —
-   * 调用方在增量 sync 中据此整池重扫)。
+   * 块(全量坐标) → step 内行标注: 两指针对齐 (缓存 per stepKey, 指纹变化即重算 —
+   * 同数异容也能察觉; 调用方在增量 sync 中据指纹漂移整池重扫)。
    */
   annotateStep(src, stepKey, lines, emit, ctx): AlignResult | null {
     if (!src.ok) return null
+    const fp = poolFingerprint(lines)
     let a = ctx.aligns.get(stepKey)
-    if (!a || a.lineCount !== lines.length) {
+    if (!a || a.fp !== fp) {
       const r = alignStep(lines, src.text.split('\n'))
       a = {
         noToFull: r.noToFull,
         inverse: new Map([...r.noToFull].map(([no, f]) => [f, no])),
+        fp,
         lineCount: lines.length,
         stepKey,
         stats: r.stats,
@@ -93,7 +100,7 @@ export const forgejoAdapter = {
       ctx.aligns.set(stepKey, a)
     }
     for (const blk of src.result.blocks) {
-      const frag = blk.fragments[0]
+      const frag = topFragment(blk)
       if (!frag) continue
       for (let f0 = blk.start_line - 1; f0 <= blk.end_line - 1; f0++) {
         const no = a.inverse.get(f0)
@@ -155,6 +162,10 @@ export const forgejoAdapter = {
   /** 外置状态 key: `${stepKey}:${no}` (no = step 内局部行号; 全量块坐标 → 局部行映射见 annotateStep)。 */
   lineKey(stepKey, no) {
     return `${stepKey}:${no}`
+  },
+
+  poolKeyPrefix(stepKey) {
+    return `${stepKey}:`
   },
 
   /** 原生流内跳转 (overlay 联动): 全量行号 → 经对齐逆映射到 step 内行 → id 锚定位。 */

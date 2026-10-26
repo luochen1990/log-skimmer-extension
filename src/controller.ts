@@ -12,8 +12,10 @@ import { forgejoAdapter } from './adapters/forgejo.ts'
 import { githubAdapter } from './adapters/github.ts'
 import { ENGINE_VERSION, LOG_FETCH_TIMEOUT_MS, REPLAY_DEBOUNCE_MS } from './config.ts'
 import { gunzip } from './core/abi.ts'
+import { poolFingerprint } from './core/align.ts'
 import { SkimEngine } from './core/engine.ts'
 import { type Annotation, InlineInjector } from './core/inline.ts'
+import { INTENT_RANK } from './core/intent.ts'
 import { ReplayDriver } from './core/observer.ts'
 import { SkimOverlay } from './core/overlay.ts'
 import { type RulesLoadResult, RulesStore, rulesJsonForWasm } from './core/rules.ts'
@@ -31,8 +33,10 @@ import type {
 } from './types.ts'
 
 const ADAPTERS: Adapter[] = [forgejoAdapter, githubAdapter]
-/** 同行多规则: 高 intent 胜出 (failure > warning > info, 与引擎 intent_rank 一致)。 */
-const INTENT_RANK = { failure: 3, warning: 2, info: 1 } as const
+
+/** 适配器探测重试参数: 500ms × 20 = 10s 上界 (Turbo/SPA 渐进渲染等待窗)。 */
+const PROBE_INTERVAL_MS = 500
+const PROBE_MAX_ATTEMPTS = 20
 
 export interface BootDeps {
   gm: GmEnv
@@ -46,9 +50,40 @@ function errToMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
 }
 
+/**
+ * 引擎自检探针: 结构校验通过 ≠ 引擎可执行 (rules 解析在首次 skim 才发生 —
+ * ABI 每次调用重传 rules)。一次最小 skim (单行普通文本, 规则无命中) 隔离
+ * "缓存投毒" (坏 yaml bundle), 调用方在 catch 中作废缓存 (M2)。
+ * 注: 空日志会被引擎的 "日志为空" 校验拒收, 探针必须非空。
+ */
+function engineProbe(e: SkimEngine): void {
+  e.skim('lsk-probe', 'lsk-probe.log')
+}
+
+/**
+ * 适配器探测 (M1 激活竞态): 先立即探测; 全 miss 时, 仅当存在 deferProbe 适配器
+ * (match 依赖渐进渲染的 DOM) 才等 DOMContentLoaded 后有界重探 — 早注入
+ * (document-start) 或 Turbo 迟渲染下不静默退出; 时序稳定的适配器 miss 即终局。
+ */
+async function findAdapter(doc: Document, loc: Location): Promise<Adapter | null> {
+  const probe = (): Adapter | null => ADAPTERS.find((a) => a.match(doc, loc)) ?? null
+  const first = probe()
+  if (first) return first
+  if (!ADAPTERS.some((a) => a.deferProbe)) return null
+  if (doc.readyState === 'loading') {
+    await new Promise<void>((res) => doc.addEventListener('DOMContentLoaded', () => res(), { once: true }))
+  }
+  for (let i = 0; i < PROBE_MAX_ATTEMPTS; i++) {
+    const a = probe()
+    if (a) return a
+    await new Promise((r) => setTimeout(r, PROBE_INTERVAL_MS))
+  }
+  return null
+}
+
 export async function boot(deps: BootDeps): Promise<void> {
   const { gm, doc, loc, wasmB64 } = deps
-  const matched = ADAPTERS.find((a) => a.match(doc, loc))
+  const matched = await findAdapter(doc, loc)
   if (!matched) {
     console.debug('[logskim] no adapter matched', loc.href)
     return
@@ -93,9 +128,7 @@ export async function boot(deps: BootDeps): Promise<void> {
       report.inline = { ...injector.stats, enabled: on }
       if (on) syncInline() // on: 无 DOM 变更则无重放事件 — 主动补一次 sync 恢复
     },
-    onRefreshRules: () => {
-      void refreshRules()
-    },
+    onRefreshRules: () => refreshRules(),
   })
   overlay.mount(doc)
   overlay.renderDiags([])
@@ -113,8 +146,8 @@ export async function boot(deps: BootDeps): Promise<void> {
   const loaded: LoadedSource[] = []
   const injector = new InlineInjector()
   injector.ensureStyle(doc)
-  /** 行池增量状态: contentAligned 适配器 (forgejo) 的行数哨兵 — 变化即整池重对齐。 */
-  const poolStates = new Map<HTMLElement, { lineCount: number }>()
+  /** 行池增量状态 (WeakMap: 池被移除即可 GC): 指纹哨兵 — 漂移即整池重对齐重注入。 */
+  let poolStates = new WeakMap<HTMLElement, { fp: string }>()
   let engine: SkimEngine | null = null
 
   function addAnno(key: string, frag: Fragment): void {
@@ -160,11 +193,18 @@ export async function boot(deps: BootDeps): Promise<void> {
       const allLines = adapter.linesOf(pool)
       const a = adapter.annotateStep(src, stepKey, allLines, addAnno, ctx)
       if (a && !report.align.some((s) => s === a.stats)) report.align.push(a.stats)
-      poolStates.set(pool, { lineCount: allLines.length })
+      poolStates.set(pool, { fp: poolFingerprint(allLines) })
       const targets =
         addedRoots === null ? allLines : dedupeEntries(addedRoots.flatMap((r) => adapter.linesIn(r)))
       examined += targets.length
       return applyEntries(targets, stepKey)
+    }
+
+    /** 池内容漂移 (M3): 作废旧标注 (前缀键) + 剥离 DOM 痕迹含签名 → 强制整池重对齐重注入。 */
+    const stripPool = (pool: HTMLElement): void => {
+      const prefix = adapter.poolKeyPrefix(adapter.stepKeyOf(pool, doc))
+      for (const k of annotations.keys()) if (k.startsWith(prefix)) annotations.delete(k)
+      injector.clearPool(pool)
     }
 
     if (!opts.mutations) {
@@ -174,7 +214,12 @@ export async function boot(deps: BootDeps): Promise<void> {
       // 增量: 只找含新增节点的池; 未受影响池零成本跳过。
       const addedEls: Element[] = []
       for (const m of opts.mutations) {
-        for (const n of m.addedNodes) if (n.nodeType === 1) addedEls.push(n as Element)
+        for (const n of m.addedNodes) {
+          // 自家 UI (overlay/fab) 渲染也走 body observer — 过滤, 防自激励重放
+          if (n.nodeType === 1 && !(n as Element).closest('#lsk-overlay,#lsk-fab')) {
+            addedEls.push(n as Element)
+          }
+        }
       }
       if (addedEls.length === 0) return { applied: 0 }
       report.sync.incremental++
@@ -183,8 +228,9 @@ export async function boot(deps: BootDeps): Promise<void> {
         if (hits.length === 0) continue
         const st = poolStates.get(pool)
         const grown =
-          adapter.contentAligned && st !== undefined && adapter.linesOf(pool).length !== st.lineCount
-        // forgejo: 行数变化 = 对齐失效 → 该池全量重对齐 (bounded by 池大小, 无虚拟化)
+          adapter.contentAligned && st !== undefined && poolFingerprint(adapter.linesOf(pool)) !== st.fp
+        // contentAligned 池: 指纹漂移 = 对齐失效 → 剥离旧痕迹 (M3) 后整池重对齐
+        if (grown) stripPool(pool)
         applied += syncPool(pool, grown ? null : hits)
       }
     }
@@ -233,8 +279,16 @@ export async function boot(deps: BootDeps): Promise<void> {
   }
   try {
     engine = await SkimEngine.create(wasmBytes, rulesJsonForWasm(bundle))
+    engineProbe(engine)
   } catch (e) {
-    fatal({ stage: 'wasm', message: `engine init failed: ${errToMessage(e)}` })
+    // 缓存投毒自愈 (M2): bundle 过了结构校验但引擎执行不了 (yaml 语法坏/不兼容) —
+    // 不作废则坏缓存永久存在, 刷新页面也救不回。
+    await rulesStore.invalidateCache()
+    fatal({
+      stage: 'rules',
+      message: `engine rejected the rules bundle: ${errToMessage(e)}`,
+      hint: 'cached bundle invalidated — reload the page to re-fetch',
+    })
     return
   }
 
@@ -264,38 +318,60 @@ export async function boot(deps: BootDeps): Promise<void> {
   console.debug('[logskim] ready', report)
 
   // ---- 手动刷新规则: 网络失败保留旧 bundle 继续工作; 成功则全量 reskim ----
+  let refreshing = false
   async function refreshRules(): Promise<void> {
-    const r = await rulesStore
-      .refresh()
-      .catch((e): RulesLoadResult => ({ ok: false, diag: { stage: 'rules', message: errToMessage(e) } }))
-    if (!r.ok) {
-      pushDiag({ ...r.diag, message: `refresh failed: ${r.diag.message}`, hint: 'keeping the cached bundle' })
-      return
-    }
+    if (refreshing) return // busy 防重入 (overlay 按钮 disabled 之外的二道防线)
+    refreshing = true
     try {
-      engine = await SkimEngine.create(wasmBytes, rulesJsonForWasm(r.bundle))
-    } catch (e) {
-      pushDiag({ stage: 'rules', message: `refreshed bundle rejected by engine: ${errToMessage(e)}` })
-      return
+      const r = await rulesStore
+        .refresh()
+        .catch((e): RulesLoadResult => ({ ok: false, diag: { stage: 'rules', message: errToMessage(e) } }))
+      if (!r.ok) {
+        pushDiag({
+          ...r.diag,
+          message: `refresh failed: ${r.diag.message}`,
+          hint: 'keeping the cached bundle',
+        })
+        return
+      }
+      let candidate: SkimEngine
+      try {
+        candidate = await SkimEngine.create(wasmBytes, rulesJsonForWasm(r.bundle))
+        engineProbe(candidate)
+      } catch (e) {
+        await rulesStore.invalidateCache() // 引擎拒收的新 bundle 已写缓存 — 作废 (M2)
+        pushDiag({
+          stage: 'rules',
+          message: `refreshed bundle rejected by engine: ${errToMessage(e)}`,
+          hint: 'cache invalidated — keeping the old engine instance, reload to re-fetch',
+        })
+        return
+      }
+      engine = candidate
+      report.rules = {
+        source: r.source,
+        ruleCount: r.bundle.rules.length,
+        generatedAt: r.bundle.manifest.generated_at,
+        fetchedAt: r.fetchedAt,
+        stale: r.stale,
+      }
+      overlay.renderRules({
+        ruleCount: r.bundle.rules.length,
+        generatedAt: r.bundle.manifest.generated_at,
+        fetchedAt: r.fetchedAt,
+        source: r.source,
+        stale: r.stale,
+      })
+      // 只清 rules 诊断 (m6): source/wasm 等其他环节的问题与刷新无关, 不能顺手抹掉
+      const kept = diags.filter((d) => d.stage !== 'rules')
+      diags.length = 0
+      diags.push(...kept)
+      report.diags = [...diags]
+      overlay.renderDiags(diags)
+      reskimAll()
+    } finally {
+      refreshing = false
     }
-    report.rules = {
-      source: r.source,
-      ruleCount: r.bundle.rules.length,
-      generatedAt: r.bundle.manifest.generated_at,
-      fetchedAt: r.fetchedAt,
-      stale: r.stale,
-    }
-    overlay.renderRules({
-      ruleCount: r.bundle.rules.length,
-      generatedAt: r.bundle.manifest.generated_at,
-      fetchedAt: r.fetchedAt,
-      source: r.source,
-      stale: r.stale,
-    })
-    diags.length = 0
-    report.diags = []
-    overlay.renderDiags([])
-    reskimAll()
   }
 
   /** 规则更新后的全量重注入: 清痕迹 → 重 skim → 重建标注表 → 整池 sync。 */
@@ -305,14 +381,14 @@ export async function boot(deps: BootDeps): Promise<void> {
       try {
         return { ...s, result: skim(s.text, s.fileName) }
       } catch (e) {
-        return { ...s, ok: false, error: errToMessage(e) } as LoadedSource
+        return { key: s.key, label: s.label, fileName: s.fileName, ok: false, error: errToMessage(e) }
       }
     })
     loaded.length = 0
     loaded.push(...rescanned)
     report.sources = summarize(loaded)
     annotations.clear()
-    poolStates.clear()
+    poolStates = new WeakMap() // WeakMap 无 clear — 换新实例 (旧池状态全作废)
     ctx.aligns.clear()
     report.align = []
     injector.clearAll()
@@ -349,26 +425,34 @@ export async function boot(deps: BootDeps): Promise<void> {
       })
       return false
     }
-    for (const s of sources) {
-      try {
+    // 并行取数 (m1): 各源独立 fetch+skim, 失败互不阻塞; 按 index 回填保序
+    const settled = await Promise.allSettled(
+      sources.map(async (s): Promise<LoadedSource> => {
         const resp = await fetch(s.url, {
           credentials: 'same-origin',
           signal: AbortSignal.timeout(LOG_FETCH_TIMEOUT_MS),
         })
         if (!resp.ok) throw new Error(`${resp.status} ${logStatusHint(resp.status, adapter.name)}`.trim())
         const text = await resp.text()
-        loaded.push({
+        return {
           key: s.key,
           label: s.label,
           fileName: s.fileName,
           ok: true,
           text,
           result: skim(text, s.fileName),
-        })
-      } catch (e) {
-        loaded.push({ key: s.key, label: s.label, fileName: s.fileName, ok: false, error: errToMessage(e) })
-      }
-    }
+        }
+      }),
+    )
+    settled.forEach((r, i) => {
+      const s = sources[i]
+      if (!s) return // 不可达 (allSettled 与 sources 等长); 防畸形
+      loaded.push(
+        r.status === 'fulfilled'
+          ? r.value
+          : { key: s.key, label: s.label, fileName: s.fileName, ok: false, error: errToMessage(r.reason) },
+      )
+    })
     report.sources = summarize(loaded)
     if (loaded.length > 0 && !loaded.some((s) => s.ok)) {
       pushDiag({ stage: 'source', message: 'all log sources failed — see the error box in the skim panel' })

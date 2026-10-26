@@ -15,6 +15,7 @@
 //   若不含 → annotateStep/fullToKey 需按 per-step hiddenLineCount 补偏移 (只改这两处)。
 //   fixture (fixtures/github) 按 "文本行 ↔ data-index 一一对应" 建模了已知语义。
 
+import { topFragment } from '../core/intent.ts'
 import type { Adapter, LineEntry, LoadedSource, LogSource, OutputBlock } from '../types.ts'
 
 function lineEntriesIn(scope: Element): LineEntry[] {
@@ -32,6 +33,8 @@ function lineEntriesIn(scope: Element): LineEntry[] {
 export const githubAdapter = {
   name: 'github',
   contentAligned: false,
+  // match 依赖 Turbo 渐进渲染的 DOM (check-step 迟到) → boot 未命中时有界重探。
+  deferProbe: true,
 
   match(doc) {
     // DOM 识别 (零 IO): check-step 在场即 Actions 日志页 (run/job/commit-checks 页通用)。
@@ -57,15 +60,16 @@ export const githubAdapter = {
       })
   },
 
+  /** stepKey 严格匹配 (无兜底): 兜底会把别的 step 的源标注到本池 → 错位高亮。 */
   sourceForStep(loaded, stepKey) {
-    return loaded.find((s) => s.key === stepKey) ?? loaded.find((s) => s.ok)
+    return loaded.find((s) => s.key === stepKey)
   },
 
   /** 块(源内坐标) → 行标注: data-index 直映 (0-based ↔ 1-based 换算), 无需对齐。 */
   annotateStep(src, stepKey, _lines, emit) {
     if (!src.ok) return null
     for (const blk of src.result.blocks) {
-      const frag = blk.fragments[0]
+      const frag = topFragment(blk)
       if (!frag) continue
       for (let ln = blk.start_line; ln <= blk.end_line; ln++) {
         emit(githubAdapter.lineKey(stepKey, ln - 1), frag)
@@ -101,6 +105,10 @@ export const githubAdapter = {
 
   lineKey(stepKey, no) {
     return `${stepKey}#${no}` // no 为 0-based data-index
+  },
+
+  poolKeyPrefix(stepKey) {
+    return `${stepKey}#`
   },
 
   /**
