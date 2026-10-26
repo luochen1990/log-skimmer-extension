@@ -40,11 +40,45 @@ test('日志端点 403 (登录墙/私有仓) → 源级错误 + hint', async ({ 
   if (!src || src.ok) throw new Error('expected source failure')
   expect(src.error).toContain('403')
   expect(src.error).toContain('sign in')
-  // overlay 错误框呈现
-  await page.click('#lsk-fab')
+  // 全源失败已自动打开面板 — 直接断言 (勿再点 fab: toggle 会把它关掉)
+  await expect(page.locator('#lsk-overlay')).toBeVisible()
   const errBox = await page.locator('#lsk-overlay .lsk-err').textContent()
   expect(errBox).toContain('403')
   await page.screenshot({ path: 'e2e/shots/degrade-403.png' })
+  await context.close()
+})
+
+test('缓存投毒自愈: 引擎拒收 bundle → 缓存作废 + 提示刷新 (M2)', async ({ browser }) => {
+  // 结构校验可过 (字段齐全/版本匹配) 但 yaml 全量非法 — 引擎装载必败的毒化形态
+  const bundle = (await readFixtureBundle()) as { rules: Array<Record<string, string>> }
+  for (const r of bundle.rules) r.yaml = 'not: [valid: yaml'
+  const { context, page } = await newSkimPage(browser)
+  await page.route(BUNDLE_URL, (route) =>
+    route.fulfill({ contentType: 'application/json', body: JSON.stringify(bundle) }),
+  )
+  await page.goto(`${BASE}/fixtures/github/index.html`)
+  await page.waitForFunction('window.__ghSim && window.__ghSim.renders >= 1')
+  await injectUserscript(page)
+  const report = await waitSettled(page)
+  expect(report.ready).toBe(false)
+  const diag = report.diags.find((d) => d.stage === 'rules')
+  if (!diag) throw new Error('expected rules diag')
+  expect(diag.message).toContain('rejected')
+  expect(diag.hint).toContain('reload')
+
+  // 毒化缓存已被作废 (GM storage 无 bundle 键) — 否则刷新页也救不回
+  const cached = await page.evaluate(() =>
+    Object.hasOwn(JSON.parse(localStorage.getItem('lsk-gm-shim-store') ?? '{}'), 'lsk:rulesBundle'),
+  )
+  expect(cached).toBe(false)
+
+  // 解除拦截 → reload (重新注入, e2e 注入不跨导航) → 正常 bundle 重拉恢复 (自愈闭环)
+  await page.unrouteAll({ behavior: 'ignoreErrors' })
+  await page.reload()
+  await page.waitForFunction('window.__ghSim && window.__ghSim.renders >= 1')
+  await injectUserscript(page)
+  const recovered = await waitReady(page)
+  expect(recovered.sources[1]).toMatchObject({ ok: true, blocks: 10 })
   await context.close()
 })
 

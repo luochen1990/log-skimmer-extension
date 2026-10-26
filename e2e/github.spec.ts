@@ -4,6 +4,7 @@
 // 覆盖: overlay 呈现 / 流内高亮 / 折叠交互 / 跳转 / 重放 / 控件态 (B1 矩阵) / 增量 sync。
 import { expect, test } from '@playwright/test'
 import {
+  DIST,
   GITHUB_FIXTURE,
   getReport,
   injectUserscript,
@@ -102,7 +103,8 @@ test.describe('github fixture 主链路', () => {
       .nth(nb - 1)
       .locator('.lsk-row')
       .click()
-    await page.waitForTimeout(1500)
+    // 等滚动落位 (直接 attach 或 cluster 占位→attach→flash 两条链路)
+    await page.waitForFunction('window.scrollY > 5000')
     const jump = await page.evaluate(() => {
       const el = [...document.querySelectorAll('.lsk-inline')].at(-1)
       return {
@@ -141,7 +143,7 @@ test.describe('github fixture 主链路', () => {
     await page.evaluate(
       'document.querySelector(`[data-index="1001"]`)?.scrollIntoView({block:"center"}) ?? window.scrollTo(0, 1001*21)',
     )
-    await page.waitForTimeout(900)
+    await page.waitForFunction('document.querySelectorAll(".lsk-inline").length >= 15')
     const report = await getReport(page)
     expect(report.inline.replayed).toBeGreaterThan(r0)
     expect(await page.locator('.lsk-inline').count()).toBeGreaterThanOrEqual(15)
@@ -215,6 +217,49 @@ test.describe('控件态 × 重放 (B1 矩阵)', () => {
     expect(await page.locator('.lsk-inline').count()).toBeGreaterThan(0)
     await context.close()
   })
+})
+
+test('早注入 (document-start 语义): boot 有界重探 → 正常激活 (M1)', async ({ browser }) => {
+  const { context, page } = await newSkimPage(browser)
+  // addInitScript: 页面任何脚本前执行 — check-step 尚未渲染, 模拟最早注入时点
+  await context.addInitScript({ path: DIST })
+  await page.goto(GITHUB_FIXTURE)
+  const report = await waitReady(page)
+  expect(report.adapter).toBe('github')
+  expect(report.sources[1]).toMatchObject({ ok: true, blocks: 10 })
+  await context.close()
+})
+
+test('step 池与 check-step 脱钩 → 严格匹配零注入 (M4: 删兜底)', async ({ browser }) => {
+  const { context, page } = await bootGithub(browser)
+
+  // 展开 step1 建立注入基线
+  await page.click('#check-step-1 summary')
+  await page.waitForFunction('document.querySelectorAll("#check-step-1 .lsk-inline").length > 0')
+
+  // 把 step1 日志池移出 check-step → stepKey 退化为 unknown-step (无 data-log-url 可寻)
+  await page.evaluate(() => {
+    const pool = document.querySelector('#check-step-1 .js-checks-log-display-container')
+    if (pool) document.body.appendChild(pool)
+  })
+
+  // off→on 强制全量重 sync: 脱钩池无源匹配 → 零注入 (修复前兜底会错拿 step2 源注入)
+  await page.click('#lsk-fab')
+  await page.click('#lsk-inline-btn')
+  await page.click('#lsk-inline-btn')
+  await page.waitForTimeout(400)
+  const pools = await page.evaluate(() =>
+    [...document.querySelectorAll('.js-checks-log-display-container')].map((p) => ({
+      inStep: !!p.closest('check-step'),
+      inline: p.querySelectorAll('.lsk-inline').length,
+    })),
+  )
+  const detached = pools.filter((p) => !p.inStep)
+  expect(detached).toHaveLength(1)
+  expect(detached[0]?.inline).toBe(0) // 脱钩池: 无兜底 → 零注入
+  const attached = pools.filter((p) => p.inStep)
+  expect(attached.length).toBeGreaterThan(0)
+  await context.close()
 })
 
 test.describe('多源与增量', () => {

@@ -1,0 +1,97 @@
+<!doctype html>
+<!-- forgejo job 页 fixture (M3): 手工 .job-step-logs 行 + append/rewrite 控制,
+     模拟 forgejo v16 渐进渲染 (运行中 job 追加行 / 同数换内容重渲染)。
+     URL 形态刻意匹配 forgejoAdapter.match 与 parseForgejoLoc 的正则
+     (/fixtures/forgejo/actions/runs/1/jobs/0.html → owner=fixtures repo=forgejo runId=1 jobIndex=0)。
+     API (jobs 列表 / logs 端点) 由 e2e route 拦截 fulfill — 本 fixture 自身零后端。 -->
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <title>forgejo job fixture</title>
+    <style>
+      body { font: 12px/1.6 ui-monospace, monospace; margin: 24px; background: #fff; }
+      .action-view-body { max-width: 980px; }
+      .job-step-summary { font: 600 13px ui-sans-serif; padding: 8px 10px; background: #f6f6f6;
+        border: 1px solid #d0d0d0; border-radius: 6px; cursor: pointer; margin-bottom: 6px; }
+      .job-step-logs { border: 1px solid #d0d0d0; border-radius: 6px; padding: 4px 0; }
+      .job-log-line { display: flex; gap: 10px; padding: 0 10px; white-space: pre-wrap; }
+      .job-log-line:hover { background: #f3f3f3; }
+      .line-num { color: #999; min-width: 3em; text-align: right; user-select: none; flex: none; }
+      .fj-controls { position: fixed; left: 16px; bottom: 16px; display: flex; gap: 8px; }
+      .fj-controls button { font: 12px ui-sans-serif; padding: 6px 12px; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <div class="action-view-body">
+      <div class="job-step-container">
+        <div class="job-step-section" id="sec-0">
+          <div class="job-step-summary">▸ Run tests (fixture)</div>
+          <div class="job-step-logs" id="logs-0"></div>
+        </div>
+      </div>
+    </div>
+    <div class="fj-controls">
+      <button id="fj-append">+ append 120 lines</button>
+      <button id="fj-rewrite">rewrite (same count, drifted content)</button>
+    </div>
+    <script>
+      // 渐进渲染仿真: 初始 80 行; append 追加 CHUNK 行 (运行中 job); rewrite 整池
+      // 重建为同行数的另一段内容 (同数异容 — 纯行数哨兵察觉不到的漂移形态)。
+      // 日志基底 = github fixture 的真实失败样本 (1172 行, 10 块), 行 id 局部 1-based。
+      const INITIAL = 80
+      const CHUNK = 120
+      // rewrite 目标段取失败块密集区 (L960+): 同数异容重对齐后注入可观测
+      const REWRITE_OFFSET = 960
+      const logs = document.getElementById('logs-0')
+      let lines = []
+      let rendered = 0
+      let offset = 0
+      window.__fjSim = { appended: 0, rewritten: 0, rendered: 0 }
+
+      function lineEl(localNo, text) {
+        const d = document.createElement('div')
+        d.className = 'job-log-line'
+        d.id = `jobstep-0-${localNo}`
+        const no = document.createElement('span')
+        no.className = 'line-num'
+        no.textContent = String(localNo)
+        const msg = document.createElement('span')
+        msg.className = 'log-msg'
+        msg.textContent = text
+        d.append(no, msg)
+        return d
+      }
+
+      function appendLines(n) {
+        const frag = document.createDocumentFragment()
+        for (let i = 0; i < n; i++) {
+          const src = offset + rendered
+          if (src >= lines.length) break
+          rendered++
+          frag.appendChild(lineEl(rendered, lines[src]))
+        }
+        logs.appendChild(frag)
+        window.__fjSim.rendered = rendered
+      }
+
+      fetch('/fixtures/github/logs/step2.log.txt')
+        .then((r) => r.text())
+        .then((t) => {
+          lines = t.split('\n')
+          appendLines(INITIAL)
+        })
+
+      document.getElementById('fj-append').onclick = () => {
+        appendLines(CHUNK)
+        window.__fjSim.appended++
+      }
+      document.getElementById('fj-rewrite').onclick = () => {
+        offset = REWRITE_OFFSET
+        rendered = 0
+        logs.textContent = '' // 整池清空重建 (同数异容: 行数不变, 首末行文本变)
+        appendLines(INITIAL)
+        window.__fjSim.rewritten++
+      }
+    </script>
+  </body>
+</html>

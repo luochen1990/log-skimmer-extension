@@ -23,6 +23,8 @@ export const DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 export const BASE = 'http://127.0.0.1:8801'
 export const BUNDLE_URL = `${BASE}/fixtures/rules-bundle.json`
 export const GITHUB_FIXTURE = `${BASE}/fixtures/github/index.html`
+/** forgejo fixture: URL 形态匹配 adapter 正则 (owner=fixtures/repo=forgejo), API 由 route 拦截。 */
+export const FORGEJO_FIXTURE = `${BASE}/fixtures/forgejo/actions/runs/1/jobs/0.html`
 
 /** GM storage 预置值 (bundle URL 默认指向本地 fixture — e2e 全离线)。 */
 export type GmSeed = Record<string, string>
