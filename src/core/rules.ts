@@ -1,7 +1,8 @@
 // rules.ts — 规则 bundle 的取数/校验/缓存/刷新 (跨仓契约的消费侧)。
 // 契约: bundle 格式 SSOT = rules 仓生成管线 ({manifest, rules}, 见 src/config.ts URL);
-//       本模块只消费不定义。缓存 = GM storage (键 GM_KEYS.bundle), 版本协商 =
-//       manifest.format_version 匹配 + min_engine_version ≤ wasm 侧引擎版本
+//       本模块只消费不定义。缓存 = 宿主 storage (GM storage / chrome.storage.local,
+//       键 HOST_KEYS.bundle), 版本协商 = manifest.format_version 匹配 +
+//       min_engine_version ≤ wasm 侧引擎版本
 //       (版本来源 = abi.ts readEngineVersion, 非 host 常量 — M1 产物导出)。
 //       两键皆可省略 (契约 "无则省略该键"; 键省略时的放行与引擎侧
 //       "无 manifest 照常装载" 对齐 — 值的判读书两侧另有差异, 见函数内注释) —
@@ -11,12 +12,12 @@
 
 import {
   BUNDLE_FORMAT_VERSION,
-  GM_KEYS,
+  HOST_KEYS,
   RULES_BUNDLE_URL,
   RULES_FETCH_TIMEOUT_MS,
   RULES_STALE_DAYS,
 } from '../config.ts'
-import type { GmEnv } from '../gm.ts'
+import type { HostEnv } from '../host.ts'
 import type { BundleManifest, Diag, RulesBundle } from '../types.ts'
 import { semVerGte } from './semver.ts'
 
@@ -112,17 +113,17 @@ export function rulesJsonForWasm(bundle: RulesBundle): string {
 
 export class RulesStore {
   constructor(
-    private readonly gm: GmEnv,
+    private readonly host: HostEnv,
     /** wasm 侧引擎版本 (版本协商事实来源 — boot 时经 readEngineVersion 读取)。 */
     private readonly engineVersion: string,
   ) {}
 
   private async bundleUrl(): Promise<string> {
-    return (await this.gm.getValue(GM_KEYS.bundleUrlOverride)) || RULES_BUNDLE_URL
+    return (await this.host.getValue(HOST_KEYS.bundleUrlOverride)) || RULES_BUNDLE_URL
   }
 
   private async readCache(): Promise<RulesLoadResult | null> {
-    const raw = await this.gm.getValue(GM_KEYS.bundle)
+    const raw = await this.host.getValue(HOST_KEYS.bundle)
     if (raw === undefined) return null
     let entry: CacheEntry
     try {
@@ -146,7 +147,7 @@ export class RulesStore {
     const url = await this.bundleUrl()
     let text: string
     try {
-      const resp = await this.gm.crossOriginFetch(url, RULES_FETCH_TIMEOUT_MS)
+      const resp = await this.host.crossOriginFetch(url, RULES_FETCH_TIMEOUT_MS)
       text = resp.text
     } catch (e) {
       return {
@@ -154,9 +155,10 @@ export class RulesStore {
         diag: {
           stage: 'rules',
           message: `rules bundle fetch failed: ${e instanceof Error ? e.message : String(e)}`,
-          hint: this.gm.managed
-            ? `check network access to ${url}, then retry from the skim panel`
-            : `cross-origin fetch needs a userscript manager (Tampermonkey) — install it, or check ${url}`,
+          hint:
+            this.host.kind === 'bare'
+              ? `cross-origin fetch needs a host (Chrome extension or Tampermonkey) — install one, or check ${url}`
+              : `check network access to ${url}, then retry from the skim panel`,
         },
       }
     }
@@ -169,7 +171,7 @@ export class RulesStore {
     const v = validateBundle(json, this.engineVersion)
     if (!v.ok) return { ok: false, diag: { stage: 'rules', message: `rules bundle rejected: ${v.reason}` } }
     const entry: CacheEntry = { bundle: v.bundle, fetchedAt: Date.now() }
-    await this.gm.setValue(GM_KEYS.bundle, JSON.stringify(entry))
+    await this.host.setValue(HOST_KEYS.bundle, JSON.stringify(entry))
     return { ok: true, bundle: v.bundle, source: 'network', fetchedAt: entry.fetchedAt, stale: false }
   }
 
@@ -190,6 +192,6 @@ export class RulesStore {
    * 调用 (缓存投毒自愈: 下次 load 无缓存 → 重拉)。
    */
   async invalidateCache(): Promise<void> {
-    await this.gm.deleteValue(GM_KEYS.bundle)
+    await this.host.deleteValue(HOST_KEYS.bundle)
   }
 }

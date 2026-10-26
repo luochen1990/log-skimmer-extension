@@ -1,4 +1,5 @@
-// controller.ts — userscript 编排核心 (页面知识全在 adapter)。
+// controller.ts — 编排核心 (双形态共用: Chrome MV3 content script 与 Tampermonkey
+// userscript; 页面知识全在 adapter, 宿主细节全在 host.ts)。
 // 编排: 适配器探测 → wasm 引擎 (解压+版本读取) → 规则装载 (cache-first, 版本协商
 //       用 wasm 侧版本) → 数据外置取数+skim → 呈现双轨 (overlay 主视图 + 流内注入)
 //       → MutationObserver 重放。
@@ -12,7 +13,8 @@
 import { forgejoAdapter } from './adapters/forgejo.ts'
 import { githubAdapter } from './adapters/github.ts'
 import { LOG_FETCH_TIMEOUT_MS, REPLAY_DEBOUNCE_MS } from './config.ts'
-import { gunzip, readEngineVersion } from './core/abi.ts'
+import { gunzip, loadEngine, type SkimAbi } from './core/abi.ts'
+import { loadEngineRpc, rpcAvailable } from './core/abi-rpc.ts'
 import { poolFingerprint } from './core/align.ts'
 import { SkimEngine } from './core/engine.ts'
 import { type Annotation, InlineInjector } from './core/inline.ts'
@@ -20,7 +22,7 @@ import { INTENT_RANK } from './core/intent.ts'
 import { ReplayDriver } from './core/observer.ts'
 import { SkimOverlay } from './core/overlay.ts'
 import { type RulesLoadResult, RulesStore, rulesJsonForWasm } from './core/rules.ts'
-import type { GmEnv } from './gm.ts'
+import type { HostEnv, HostKind } from './host.ts'
 import type {
   Adapter,
   AdapterCtx,
@@ -40,7 +42,7 @@ const PROBE_INTERVAL_MS = 500
 const PROBE_MAX_ATTEMPTS = 20
 
 export interface BootDeps {
-  gm: GmEnv
+  host: HostEnv
   doc: Document
   loc: Location
   /** 内嵌 (gzip+base64) 引擎 wasm — 构建期生成, 见 scripts/build.mjs。 */
@@ -51,14 +53,36 @@ function errToMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
 }
 
+/** Chrome 的 CSP 拦截文案特征 (compile/instantiate 皆匹配; 大小写不敏感)。 */
+const CSP_WASM_RE = /content security policy|wasm-unsafe-eval|wasm-eval/i
+
+/**
+ * wasm 装载失败诊断 — CSP 拦截形态给出形态切换指引 (github.com 实测教训:
+ * 页面 CSP 不含 wasm-unsafe-eval 时, 页面世界 (userscript 注入环境) 的
+ * WebAssembly 编译被拒; MV3 content script 的 isolated world 不受页面 CSP
+ * 约束, 是 github.com 场景唯一可靠形态)。extension 形态理论上不会遇到 CSP 拦截
+ * (遇到了说明 Chrome 语义变化), 文案保持中性。
+ */
+function wasmLoadDiag(e: unknown, kind: HostKind): Diag {
+  const message = `engine wasm failed to load: ${errToMessage(e)}`
+  const cspBlocked = CSP_WASM_RE.test(message)
+  const hint =
+    cspBlocked && kind !== 'extension'
+      ? 'page CSP blocks WebAssembly compilation — on github.com install the Chrome extension build instead (see README)'
+      : kind === 'extension'
+        ? 'service worker unavailable — reload the page or reinstall the extension (see README)'
+        : undefined
+  return hint === undefined ? { stage: 'wasm', message } : { stage: 'wasm', message, hint }
+}
+
 /**
  * 引擎自检探针: 结构校验通过 ≠ 引擎可执行 (rules 解析在首次 skim 才发生 —
  * ABI 每次调用重传 rules)。一次最小 skim (单行普通文本, 规则无命中) 隔离
  * "缓存投毒" (坏 yaml bundle), 调用方在 catch 中作废缓存 (M2)。
  * 注: 空日志会被引擎的 "日志为空" 校验拒收, 探针必须非空。
  */
-function engineProbe(e: SkimEngine): void {
-  e.skim('lsk-probe', 'lsk-probe.log')
+async function engineProbe(e: SkimEngine): Promise<void> {
+  await e.skim('lsk-probe', 'lsk-probe.log')
 }
 
 /**
@@ -83,7 +107,7 @@ async function findAdapter(doc: Document, loc: Location): Promise<Adapter | null
 }
 
 export async function boot(deps: BootDeps): Promise<void> {
-  const { gm, doc, loc, wasmB64 } = deps
+  const { host, doc, loc, wasmB64 } = deps
   const matched = await findAdapter(doc, loc)
   if (!matched) {
     console.debug('[logskim] no adapter matched', loc.href)
@@ -176,7 +200,7 @@ export async function boot(deps: BootDeps): Promise<void> {
     }
   }
 
-  function skim(text: string, fileName: string): SkimResult {
+  async function skim(text: string, fileName: string): Promise<SkimResult> {
     if (!engine) throw new Error('engine not ready')
     return engine.skim(text, fileName)
   }
@@ -252,18 +276,25 @@ export async function boot(deps: BootDeps): Promise<void> {
     report.inline = { ...injector.stats, enabled: true }
   }
 
-  // ---- 数据装载: wasm (解压+版本读取) → 规则 (cache-first, 版本协商用 wasm 侧版本) → 源取数 + skim ----
-  let wasmBytes: Uint8Array<ArrayBuffer>
+  // ---- 数据装载: abi 分派 (扩展=SW RPC / 其余=本地 wasm) → 规则 (cache-first, 版本协商用 abi 版本) → 源取数 + skim ----
+  // 扩展形态不在 content script 编译 wasm: 严格 CSP 页会拒 (2026-10-27 实测),
+  // wasm 跑在 background SW (manifest 放行 wasm-unsafe-eval)。
+  let abi: SkimAbi
   let engineVersion: string
   try {
-    wasmBytes = await gunzip(wasmB64)
-    engineVersion = await readEngineVersion(wasmBytes)
+    if (host.kind === 'extension' && rpcAvailable()) {
+      abi = await loadEngineRpc()
+      engineVersion = abi.engineVersion
+    } else {
+      abi = await loadEngine(await gunzip(wasmB64))
+      engineVersion = abi.engineVersion
+    }
     report.engineVersion = engineVersion
   } catch (e) {
-    fatal({ stage: 'wasm', message: `engine wasm failed to load: ${errToMessage(e)}` })
+    fatal(wasmLoadDiag(e, host.kind))
     return
   }
-  const rulesStore = new RulesStore(gm, engineVersion)
+  const rulesStore = new RulesStore(host, engineVersion)
   const rulesLoad = await rulesStore.load()
   if (!rulesLoad.ok) {
     fatal(rulesLoad.diag)
@@ -280,8 +311,8 @@ export async function boot(deps: BootDeps): Promise<void> {
   }
 
   try {
-    engine = await SkimEngine.create(wasmBytes, rulesJsonForWasm(bundle))
-    engineProbe(engine)
+    engine = await SkimEngine.create(abi, rulesJsonForWasm(bundle))
+    await engineProbe(engine)
   } catch (e) {
     // 缓存投毒自愈 (M2): bundle 过了结构校验但引擎执行不了 (yaml 语法坏/不兼容) —
     // 不作废则坏缓存永久存在, 刷新页面也救不回。
@@ -332,8 +363,8 @@ export async function boot(deps: BootDeps): Promise<void> {
       }
       let candidate: SkimEngine
       try {
-        candidate = await SkimEngine.create(wasmBytes, rulesJsonForWasm(r.bundle))
-        engineProbe(candidate)
+        candidate = await SkimEngine.create(abi, rulesJsonForWasm(r.bundle))
+        await engineProbe(candidate)
       } catch (e) {
         await rulesStore.invalidateCache() // 引擎拒收的新 bundle 已写缓存 — 作废 (M2)
         pushDiag({
@@ -351,7 +382,7 @@ export async function boot(deps: BootDeps): Promise<void> {
       diags.push(...kept)
       report.diags = [...diags]
       overlay.renderDiags(diags)
-      reskimAll()
+      await reskimAll()
     } finally {
       refreshing = false
     }
@@ -369,15 +400,17 @@ export async function boot(deps: BootDeps): Promise<void> {
   }
 
   /** 规则更新后的全量重注入: 清痕迹 → 重 skim → 重建标注表 → 整池 sync。 */
-  function reskimAll(): void {
-    const rescanned: LoadedSource[] = loaded.map((s) => {
-      if (!s.ok) return s
-      try {
-        return { ...s, result: skim(s.text, s.fileName) }
-      } catch (e) {
-        return { key: s.key, label: s.label, fileName: s.fileName, ok: false, error: errToMessage(e) }
-      }
-    })
+  async function reskimAll(): Promise<void> {
+    const rescanned: LoadedSource[] = await Promise.all(
+      loaded.map(async (s) => {
+        if (!s.ok) return s
+        try {
+          return { ...s, result: await skim(s.text, s.fileName) }
+        } catch (e) {
+          return { key: s.key, label: s.label, fileName: s.fileName, ok: false, error: errToMessage(e) }
+        }
+      }),
+    )
     loaded.length = 0
     loaded.push(...rescanned)
     report.sources = summarize(loaded)
@@ -428,7 +461,7 @@ export async function boot(deps: BootDeps): Promise<void> {
           fileName: s.fileName,
           ok: true,
           text,
-          result: skim(text, s.fileName),
+          result: await skim(text, s.fileName),
         }
       }),
     )

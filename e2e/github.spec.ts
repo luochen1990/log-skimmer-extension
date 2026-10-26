@@ -104,8 +104,13 @@ test.describe('github fixture 主链路', () => {
       .nth(nb - 1)
       .locator('.lsk-row')
       .click()
-    // 等滚动落位 (直接 attach 或 cluster 占位→attach→flash 两条链路)
-    await page.waitForFunction('window.scrollY > 5000')
+    // 等滚动落位 + 高亮注入到位 (跨 cluster: 滚动 → cluster attach → 重放注入三段链路,
+    // 组合条件等待消除段间竞态; .lsk-inline 在场 = 注入完成)
+    await page.waitForFunction(
+      'window.scrollY > 5000 && document.querySelectorAll(".lsk-inline").length > 0',
+      undefined,
+      { timeout: 10_000 },
+    )
     const jump = await page.evaluate(() => {
       const el = [...document.querySelectorAll('.lsk-inline')].at(-1)
       return {

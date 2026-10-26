@@ -10,8 +10,8 @@ export const BUNDLE_FORMAT_VERSION = 2
 /** 缓存的 bundle 超过该天数 → overlay 显示 stale 提示 (不阻断功能)。 */
 export const RULES_STALE_DAYS = 7
 
-/** GM storage 键。 */
-export const GM_KEYS = {
+/** 宿主 storage 键 (GM storage 与 chrome.storage.local 共用同一键空间语义)。 */
+export const HOST_KEYS = {
   bundle: 'lsk:rulesBundle',
   /** bundle URL 覆盖 (调试/镜像场景; e2e 用它指向本地 fixture)。 */
   bundleUrlOverride: 'lsk:bundleUrl',

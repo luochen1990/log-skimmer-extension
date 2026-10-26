@@ -1,8 +1,8 @@
 // rules.test.ts — bundle 校验/版本协商/wasm 入参格式的单元测试 (跨仓契约消费侧)。
 import { deepEqual, equal } from 'node:assert/strict'
 import { test } from 'node:test'
-import { GM_KEYS } from '../config.ts'
-import type { GmEnv } from '../gm.ts'
+import { HOST_KEYS } from '../config.ts'
+import type { HostEnv } from '../host.ts'
 import type { RulesBundle } from '../types.ts'
 import { RulesStore, rulesJsonForWasm, validateBundle } from './rules.ts'
 
@@ -98,9 +98,9 @@ test('rulesJsonForWasm: [[path, yaml]] 形态 (ABI 契约)', () => {
   ])
 })
 
-test('RulesStore.invalidateCache: 作废 GM bundle 键 (缓存投毒自愈, M2)', async () => {
+test('RulesStore.invalidateCache: 作废 bundle 缓存键 (缓存投毒自愈, M2)', async () => {
   const store = new Map<string, string>()
-  const gm: GmEnv = {
+  const host: HostEnv = {
     getValue: async (k) => store.get(k),
     setValue: async (k, v) => {
       store.set(k, v)
@@ -111,9 +111,9 @@ test('RulesStore.invalidateCache: 作废 GM bundle 键 (缓存投毒自愈, M2)'
     crossOriginFetch: async () => {
       throw new Error('unused in this test')
     },
-    managed: true,
+    kind: 'userscript',
   }
-  await gm.setValue(GM_KEYS.bundle, JSON.stringify({ bundle: bundle(), fetchedAt: 0 }))
-  await new RulesStore(gm, '0.1.0').invalidateCache()
-  equal(await gm.getValue(GM_KEYS.bundle), undefined)
+  await host.setValue(HOST_KEYS.bundle, JSON.stringify({ bundle: bundle(), fetchedAt: 0 }))
+  await new RulesStore(host, '0.1.0').invalidateCache()
+  equal(await host.getValue(HOST_KEYS.bundle), undefined)
 })

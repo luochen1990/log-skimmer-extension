@@ -23,7 +23,8 @@ interface WasmExports {
 }
 
 export interface SkimAbi {
-  skimJson(rulesJson: string, fileName: string, logText: string): SkimEnvelope
+  /** skim 入口 (统一 async: 本地 wasm 形态实为同步调用包 Promise; 扩展形态走 SW 消息通道)。 */
+  skimJson(rulesJson: string, fileName: string, logText: string): Promise<SkimEnvelope>
   /** wasm 侧引擎版本 (实例化时读取一次; 4B 前缀协议同上, payload 为纯字符串)。 */
   readonly engineVersion: string
 }
@@ -62,7 +63,7 @@ export async function loadEngine(wasmBytes: Uint8Array<ArrayBuffer>): Promise<Sk
 
   const engineVersion = recv(ex.wasm_engine_version())
 
-  function skimJson(rulesJson: string, fileName: string, logText: string): SkimEnvelope {
+  async function skimJson(rulesJson: string, fileName: string, logText: string): Promise<SkimEnvelope> {
     const rs = send(rulesJson)
     const fs = send(fileName)
     const ls = send(logText)

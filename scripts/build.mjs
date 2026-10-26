@@ -1,8 +1,17 @@
-// build.mjs — 单文件 userscript 构建。
-// 步骤: ① 源构建 wasm (引擎仓 worktree, cargo release) → gzip → base64 →
-//          src/generated/wasm-b64.ts (内嵌资产, 头注释登记引擎 commit + sha256 溯源)
-//       ② esbuild bundle (ESM 源 → IIFE 产物, userscript 生态约束) + ==UserScript== banner
-// 产物: dist/log-skimmer.user.js (安装即完整离线 — wasm 内嵌, 规则 bundle 是唯一网络依赖)。
+// build.mjs — 双形态构建 (Chrome MV3 扩展 = 主交付 + Tampermonkey userscript = 备选)。
+// 步骤: ① 源构建 wasm (引擎仓 master checkout, cargo release) → gzip → base64 →
+//          src/generated/wasm-b64.ts (userscript 内嵌资产, 头注释登记引擎 commit + sha256 溯源)
+//       ② esbuild bundle (ESM 源 → IIFE 产物) ×3: userscript (==UserScript== banner +
+//          内嵌 wasm) / MV3 content script (dist/extension/content.js, 内嵌 wasm 被
+//          onResolve stub 剥离 — 计算在 SW) / MV3 service worker (dist/extension/sw.js,
+//          wasm 引擎宿主, 消息协议见 src/sw.ts ↔ src/core/abi-rpc.ts)
+//       ③ MV3 壳: manifest.json (版本号 SSOT = package.json; background SW +
+//          extension_pages CSP 放行 wasm-unsafe-eval) + engine.wasm 裸文件 (SW fetch)
+//          + 图标 (矢量生成) + zip (dist/log-skimmer-extension.zip)
+// 产物: dist/extension/ (chrome://extensions → Load unpacked 直用) 与
+//       dist/log-skimmer.user.js (CSP 宽松环境的轻量备选 — github.com 页面 CSP
+//       不含 wasm-unsafe-eval, 且 content script isolated world 的 wasm 编译同样
+//       被拒 (2026-10-27 实测), userscript 不可用于 github.com)。
 // wasm 供给 (正式源): 源目录 = 引擎仓 master checkout (cargo + wasm32 工具链
 //   经其 devShell 提供 — `nix develop $SRC -c just check` 在本仓跑通全链)。
 //   LOG_SKIMMER_WASM_SRC 可覆盖 (调试/镜像)。生产 CI 未来的源 = web 仓 CI 自建
@@ -15,11 +24,25 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
 import { build } from 'esbuild'
+import { zipFiles } from './binutil.mjs'
+import { iconPng } from './icon.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const GEN_DIR = path.join(ROOT, 'src/generated')
 const GEN_FILE = path.join(GEN_DIR, 'wasm-b64.ts')
 const OUT = path.join(ROOT, 'dist/log-skimmer.user.js')
+const EXT_DIR = path.join(ROOT, 'dist/extension')
+const EXT_ZIP = path.join(ROOT, 'dist/log-skimmer-extension.zip')
+
+/** CI 日志页 URL 形态 (双形态共用 SSOT: userscript @match = manifest content_scripts)。 */
+const MATCHES = [
+  'https://github.com/*/*/actions/runs*',
+  'https://github.com/*/*/commit/*/checks*',
+  '*://*/*/*/actions/runs*',
+]
+
+const DESCRIPTION =
+  'CI failure logs, skimmed — inline failure highlights + a skim overlay on GitHub Actions / Forgejo job log pages'
 
 // wasm 源 (引擎仓 worktree); 产物路径 = cargo 默认 target 布局。
 const WASM_SRC = process.env.LOG_SKIMMER_WASM_SRC ?? '/home/lc/ws/log-skimmer'
@@ -60,13 +83,11 @@ const header = `// ==UserScript==
 // @name         log-skimmer
 // @namespace    https://github.com/luochen1990/log-skimmer
 // @version      ${pkg.version}
-// @description  CI failure logs, skimmed — inline failure highlights + a skim overlay on GitHub Actions / Forgejo job log pages
+// @description  ${DESCRIPTION}
 // @author       luochen1990
 // @license      Apache-2.0
 // @homepageURL  https://github.com/luochen1990/log-skimmer
-// @match        https://github.com/*/*/actions/runs*
-// @match        https://github.com/*/*/commit/*/checks*
-// @match        *://*/*/*/actions/runs*
+${MATCHES.map((m) => `// @match        ${m}`).join('\n')}
 // @grant        GM_xmlhttpRequest
 // @grant        GM.setValue
 // @grant        GM.getValue
@@ -91,8 +112,96 @@ await build({
   logLevel: 'info',
 })
 
+// ---- ③ MV3 扩展壳 (主交付形态): manifest + content.js + sw.js + engine.wasm + 图标 + zip ----
+// wasm 计算在 background service worker (2026-10-27 实测: 严格 CSP 页拒绝 content
+// script isolated world 的 WebAssembly.compile — SW 是扩展自身 CSP, manifest 显式
+// 放行 'wasm-unsafe-eval'); content script 经 chrome.runtime 消息通道调 skim
+// (src/core/abi-rpc.ts ↔ src/sw.ts)。content.js 构建时 stub 掉内嵌 wasm b64
+// (计算在 SW, 内嵌 0.7MB 死重由 onResolve 替换为空串模块剥离)。bundle 走
+// ACAO:* 的 raw.githubusercontent.com, 无需 host_permissions。
+fs.mkdirSync(path.join(EXT_DIR, 'icons'), { recursive: true })
+const manifest = {
+  manifest_version: 3,
+  name: 'log-skimmer',
+  version: pkg.version,
+  description: DESCRIPTION,
+  icons: { 16: 'icons/icon16.png', 48: 'icons/icon48.png', 128: 'icons/icon128.png' },
+  background: { service_worker: 'sw.js' },
+  content_security_policy: {
+    extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",
+  },
+  content_scripts: [{ matches: MATCHES, js: ['content.js'], run_at: 'document_idle' }],
+  permissions: ['storage'],
+}
+fs.writeFileSync(path.join(EXT_DIR, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
+
+// extension 构建专用: 内嵌 wasm b64 → 空串 stub (计算在 SW; userscript 构建不受影响)
+const stripEmbeddedWasm = {
+  name: 'strip-embedded-wasm',
+  setup(b) {
+    b.onResolve({ filter: /wasm-b64\.ts$/ }, () => ({
+      path: path.join(ROOT, 'src/generated/wasm-b64-stub.ts'),
+    }))
+  },
+}
+fs.mkdirSync(path.join(ROOT, 'src/generated'), { recursive: true })
+fs.writeFileSync(
+  path.join(ROOT, 'src/generated/wasm-b64-stub.ts'),
+  "// GENERATED by scripts/build.mjs — extension 构建的空 wasm 占位 (计算在 SW, 不内嵌)。\nexport default ''\n",
+)
+
+const EXT_FILES = [
+  'manifest.json',
+  'content.js',
+  'sw.js',
+  'engine.wasm',
+  'icons/icon16.png',
+  'icons/icon48.png',
+  'icons/icon128.png',
+]
+await build({
+  entryPoints: [path.join(ROOT, 'src/main.ts')],
+  bundle: true,
+  format: 'iife',
+  target: 'es2022',
+  platform: 'browser',
+  outfile: path.join(EXT_DIR, 'content.js'),
+  banner: { js: '// log-skimmer content script — built from src/main.ts (see repo for sources)' },
+  plugins: [stripEmbeddedWasm],
+  legalComments: 'none',
+  charset: 'utf8',
+  sourcemap: false,
+  minify: false, // DevTools 可读; 体积由 wasm 主导
+  logLevel: 'info',
+})
+// SW: wasm 引擎宿主 (消息协议 {t:'v'}/{t:'skim'}; engine.wasm 裸文件由包内 fetch)
+await build({
+  entryPoints: [path.join(ROOT, 'src/sw.ts')],
+  bundle: true,
+  format: 'iife',
+  target: 'es2022',
+  platform: 'browser',
+  outfile: path.join(EXT_DIR, 'sw.js'),
+  banner: { js: '// log-skimmer service worker — wasm engine host (see src/sw.ts)' },
+  legalComments: 'none',
+  charset: 'utf8',
+  sourcemap: false,
+  minify: false,
+  logLevel: 'info',
+})
+fs.writeFileSync(path.join(EXT_DIR, 'engine.wasm'), wasmRaw)
+for (const size of [16, 48, 128]) {
+  fs.writeFileSync(path.join(EXT_DIR, `icons/icon${size}.png`), iconPng(size))
+}
+fs.writeFileSync(
+  EXT_ZIP,
+  zipFiles(EXT_FILES.map((f) => ({ name: f, data: fs.readFileSync(path.join(EXT_DIR, f)) }))),
+)
+
 // ---- 汇报 ----
 const outSize = fs.statSync(OUT).size
+const zipSize = fs.statSync(EXT_ZIP).size
 console.log(`wasm: raw ${wasmRaw.length} B · gzip ${gz.length} B · base64 ${b64.length} B`)
 console.log(`wasm sha256: ${sha256} (engine @ ${engineCommit})`)
 console.log(`userscript: ${OUT} (${outSize} B = ${(outSize / 1024 / 1024).toFixed(2)} MiB)`)
+console.log(`extension: ${EXT_DIR} + ${EXT_ZIP} (${zipSize} B = ${(zipSize / 1024 / 1024).toFixed(2)} MiB)`)
