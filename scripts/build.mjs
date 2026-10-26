@@ -3,7 +3,7 @@
 //          src/generated/wasm-b64.ts (内嵌资产, 头注释登记引擎 commit + sha256 溯源)
 //       ② esbuild bundle (ESM 源 → IIFE 产物, userscript 生态约束) + ==UserScript== banner
 // 产物: dist/log-skimmer.user.js (安装即完整离线 — wasm 内嵌, 规则 bundle 是唯一网络依赖)。
-// wasm 供给 (M1 正式源): 源目录 = 引擎仓 feat-wasm worktree (cargo + wasm32 工具链
+// wasm 供给 (正式源): 源目录 = 引擎仓 master checkout (cargo + wasm32 工具链
 //   经其 devShell 提供 — `nix develop $SRC -c just check` 在本仓跑通全链)。
 //   LOG_SKIMMER_WASM_SRC 可覆盖 (调试/镜像)。生产 CI 未来的源 = web 仓 CI 自建
 //   (runner 装 rust + wasm32 target 后 checkout 引擎仓自建, 不再依赖 /tmp worktree)。
@@ -22,7 +22,7 @@ const GEN_FILE = path.join(GEN_DIR, 'wasm-b64.ts')
 const OUT = path.join(ROOT, 'dist/log-skimmer.user.js')
 
 // wasm 源 (引擎仓 worktree); 产物路径 = cargo 默认 target 布局。
-const WASM_SRC = process.env.LOG_SKIMMER_WASM_SRC ?? '/tmp/opencode/log-skimmer/feat-wasm-20261026-1306'
+const WASM_SRC = process.env.LOG_SKIMMER_WASM_SRC ?? '/home/lc/ws/log-skimmer'
 const WASM = path.join(WASM_SRC, 'target/wasm32-unknown-unknown/release/log_skimmer_wasm.wasm')
 
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
@@ -30,7 +30,7 @@ const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
 // ---- ① 源构建 wasm (cargo release, 在源目录执行 — Cargo.toml/workspace 在彼处) ----
 // 预检源在场: 缺失时 spawn 的 ENOENT 形态指向 "cargo 不在", 真因归因误导。
 if (!fs.existsSync(path.join(WASM_SRC, 'Cargo.toml'))) {
-  console.error(`wasm 源不存在: ${WASM_SRC} — 设置 LOG_SKIMMER_WASM_SRC 指向引擎仓 checkout (feat-wasm 分支)`)
+  console.error(`wasm 源不存在: ${WASM_SRC} — 设置 LOG_SKIMMER_WASM_SRC 指向引擎仓 checkout (master)`)
   process.exit(1)
 }
 execFileSync(
