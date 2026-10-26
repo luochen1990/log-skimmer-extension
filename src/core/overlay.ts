@@ -7,13 +7,8 @@
 //       与手动刷新入口。
 // 联动: 块/行点击 → onJump(block) 回调 (controller 接 adapter 滚动原生流内对应行)。
 
-import type { Diag, Fragment, Intent, OutputBlock, SkimResult } from '../types.ts'
-
-const INTENT_META: Record<Intent, { icon: string; color: string; bg: string }> = {
-  failure: { icon: '✕', color: '#cf222e', bg: '#ffebe9' },
-  warning: { icon: '⚠', color: '#82460a', bg: '#fff8c5' },
-  info: { icon: 'ℹ', color: '#0969da', bg: '#ddf4ff' },
-}
+import type { Diag, Intent, OutputBlock, SkimResult } from '../types.ts'
+import { blockIntent, INTENT_META, topFragment } from './intent.ts'
 
 /** 静态自有元素查找 — 找不到即内部结构错误, 显式抛错优于静默。 */
 function must<T extends Element>(root: ParentNode, sel: string): T {
@@ -41,7 +36,8 @@ export interface RulesInfo {
 export interface OverlayInit {
   onJump: (block: OutputBlock, srcIdx: number) => void
   onToggleInline: (on: boolean) => void
-  onRefreshRules: () => void
+  /** 规则刷新 (异步); overlay 在 Promise 落定前禁用按钮 (防连点)。 */
+  onRefreshRules: () => Promise<void>
 }
 
 export class SkimOverlay {
@@ -136,7 +132,13 @@ export class SkimOverlay {
     this.bodyEl = must<HTMLElement>(p, '#lsk-body')
     this.diagEl = must<HTMLElement>(p, '#lsk-diags')
     must<HTMLButtonElement>(p, '#lsk-close').onclick = () => this.toggle()
-    must<HTMLButtonElement>(p, '#lsk-refresh').onclick = () => this.init.onRefreshRules()
+    const refreshBtn = must<HTMLButtonElement>(p, '#lsk-refresh')
+    refreshBtn.onclick = () => {
+      refreshBtn.disabled = true // pending (n8): 落定前禁用, 防重复刷新
+      void this.init.onRefreshRules().finally(() => {
+        refreshBtn.disabled = false
+      })
+    }
     const inlineBtn = must<HTMLButtonElement>(p, '#lsk-inline-btn')
     inlineBtn.onclick = () => {
       this.inlineOn = !this.inlineOn
@@ -167,9 +169,7 @@ export class SkimOverlay {
       t.onclick = () => this.selectSource(i)
       this.tabsEl.appendChild(t)
     })
-    const failIdx = sources.findIndex((s) =>
-      s.result?.blocks.some((b) => b.fragments[0]?.intent === 'failure'),
-    )
+    const failIdx = sources.findIndex((s) => s.result?.blocks.some((b) => blockIntent(b) === 'failure'))
     this.selectSource(Math.max(failIdx, 0))
   }
 
@@ -202,7 +202,7 @@ export class SkimOverlay {
     const comp = Math.round((1 - result.output_lines / total) * 100)
     const counts: Partial<Record<Intent, number>> = {}
     for (const b of result.blocks) {
-      const it = b.fragments[0]?.intent ?? 'info'
+      const it = blockIntent(b)
       counts[it] = (counts[it] ?? 0) + 1
     }
     const countStr = (Object.entries(counts) as Array<[Intent, number]>)
@@ -231,7 +231,7 @@ export class SkimOverlay {
   }
 
   private blockEl(blk: OutputBlock, lines: string[]): HTMLElement {
-    const frag: Fragment | undefined = blk.fragments[0]
+    const frag = topFragment(blk)
     const it = INTENT_META[frag?.intent ?? 'info']
     const el = this.doc.createElement('div')
     el.className = 'lsk-blk'
