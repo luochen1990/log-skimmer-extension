@@ -1,0 +1,16 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+src/generated/
+
+# e2e artifacts
+e2e/.playwright/
+test-results/
+playwright-report/
+
+# env / os
+.direnv/
+.env
+*.log

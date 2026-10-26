@@ -1,0 +1,27 @@
+{
+  "name": "log-skimmer-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "log-skimmer browser delivery: Tampermonkey userscript that skims CI failure logs on GitHub Actions / Forgejo job pages",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check --error-on-warnings .",
+    "fmt": "biome check --write .",
+    "unit": "node --test --experimental-transform-types --test-reporter=spec \"src/core/*.test.ts\"",
+    "e2e": "playwright test",
+    "serve": "node scripts/serve.mjs"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.4",
+    "@playwright/test": "~1.63.0",
+    "@types/node": "^24.19.2",
+    "esbuild": "^0.25.12",
+    "typescript": "^5.9.3"
+  }
+}
