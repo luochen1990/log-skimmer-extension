@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<!-- 降级 fixture: check-step 在场但无 data-log-url (运行中 job / 登录墙形态)
+     → "无日志端点" 诊断, 不崩溃。 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>running job · no log endpoints</title>
+<style>
+  body { font: 13px/1.6 -apple-system, sans-serif; margin: 40px; }
+  check-step { display: block; border: 1px solid #d1d9e0; border-radius: 8px; padding: 10px 14px; }
+</style>
+</head>
+<body>
+  <h1>job 42 (in progress)</h1>
+  <div class="js-check-steps">
+    <check-step data-name="Build (queued)" data-number="1">
+      <details class="Details-element CheckStep details-reset js-checks-log-details" id="check-step-1" data-step-number="1">
+        <summary class="CheckStep-header js-check-step-summary">Build</summary>
+        <div class="js-checks-log-display"><div class="js-checks-log-display-container"></div></div>
+      </details>
+    </check-step>
+  </div>
+</body>
+</html>

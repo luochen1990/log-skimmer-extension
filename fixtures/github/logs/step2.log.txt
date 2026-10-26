@@ -1,0 +1,1172 @@
+﻿2026-10-24T07:54:47.1917650Z Current runner version: '2.338.0'
+2026-10-24T07:54:47.1935660Z ##[group]Runner Image Provisioner
+2026-10-24T07:54:47.1936290Z Hosted Compute Agent
+2026-10-24T07:54:47.1936670Z Version: 20261012.601
+2026-10-24T07:54:47.1937080Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-24T07:54:47.1937560Z Build Date: 2026-10-12T17:48:21Z
+2026-10-24T07:54:47.1938000Z Worker ID: {fbd0abbe-9b63-4080-9def-c727007f3d8e}
+2026-10-24T07:54:47.1938460Z Region: westus
+2026-10-24T07:54:47.1938820Z Cloud: MacCloud
+2026-10-24T07:54:47.1939170Z ##[endgroup]
+2026-10-24T07:54:47.1940150Z ##[group]Operating System
+2026-10-24T07:54:47.1940560Z macOS
+2026-10-24T07:54:47.1940880Z 26.6.2
+2026-10-24T07:54:47.1941210Z 25G83
+2026-10-24T07:54:47.1941550Z ##[endgroup]
+2026-10-24T07:54:47.1941900Z ##[group]Runner Image
+2026-10-24T07:54:47.1942330Z Image: macos-26-arm64
+2026-10-24T07:54:47.1942720Z Version: 20261013.0424.1
+2026-10-24T07:54:47.1943700Z Included Software: https://github.com/actions/runner-images/blob/macos-26-arm64/20261013.0424/images/macos/macos-26-arm64-Readme.md
+2026-10-24T07:54:47.1944880Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-26-arm64%2F20261013.0424
+2026-10-24T07:54:47.1945580Z ##[endgroup]
+2026-10-24T07:54:47.1946460Z ##[group]GITHUB_TOKEN Permissions
+2026-10-24T07:54:47.1947890Z Contents: read
+2026-10-24T07:54:47.1948420Z Metadata: read
+2026-10-24T07:54:47.1948870Z ##[endgroup]
+2026-10-24T07:54:47.1950450Z Secret source: Actions
+2026-10-24T07:54:47.1951120Z Cache mode: write
+2026-10-24T07:54:47.1951600Z Prepare workflow directory
+2026-10-24T07:54:47.2564990Z Prepare all required actions
+2026-10-24T07:54:47.2610280Z Getting action download info
+2026-10-24T07:54:47.7387360Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-24T07:54:48.2634610Z Download action repository 'actions/cache@v6' (SHA:55cc8345863c7cc4c66a329aec7e433d2d1c52a9)
+2026-10-24T07:54:48.4591100Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-10-24T07:54:49.1794890Z Complete job name: macos
+2026-10-24T07:54:49.3061400Z ##[group]Run actions/checkout@v7
+2026-10-24T07:54:49.3062220Z with:
+2026-10-24T07:54:49.3062700Z   repository: jgm/pandoc
+2026-10-24T07:54:49.3067190Z   token: ***
+2026-10-24T07:54:49.3067570Z   ssh-strict: true
+2026-10-24T07:54:49.3067950Z   ssh-user: git
+2026-10-24T07:54:49.3068340Z   persist-credentials: true
+2026-10-24T07:54:49.3068740Z   clean: true
+2026-10-24T07:54:49.3069130Z   sparse-checkout-cone-mode: true
+2026-10-24T07:54:49.3069570Z   fetch-depth: 1
+2026-10-24T07:54:49.3070010Z   fetch-tags: false
+2026-10-24T07:54:49.3070400Z   show-progress: true
+2026-10-24T07:54:49.3070850Z   lfs: false
+2026-10-24T07:54:49.3072600Z   submodules: false
+2026-10-24T07:54:49.3073530Z   set-safe-directory: true
+2026-10-24T07:54:49.3074030Z   allow-unsafe-pr-checkout: false
+2026-10-24T07:54:49.3075050Z env:
+2026-10-24T07:54:49.3075510Z   DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+2026-10-24T07:54:49.3076300Z ##[endgroup]
+2026-10-24T07:54:50.0042910Z Syncing repository: jgm/pandoc
+2026-10-24T07:54:50.0045670Z ##[group]Getting Git version info
+2026-10-24T07:54:50.0046660Z Working directory is '/Users/runner/work/pandoc/pandoc'
+2026-10-24T07:54:50.0048200Z [command]/opt/homebrew/bin/git version
+2026-10-24T07:54:50.0359690Z git version 2.56.0
+2026-10-24T07:54:50.0379290Z ##[endgroup]
+2026-10-24T07:54:50.0388360Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/9e2ac505-bafd-49fb-a4fe-07e00e9eb85d/.gitconfig'
+2026-10-24T07:54:50.0394150Z Temporarily overriding HOME='/Users/runner/work/_temp/9e2ac505-bafd-49fb-a4fe-07e00e9eb85d' before making global git config changes
+2026-10-24T07:54:50.0396900Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-24T07:54:50.0399830Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/pandoc/pandoc
+2026-10-24T07:54:50.0575640Z Deleting the contents of '/Users/runner/work/pandoc/pandoc'
+2026-10-24T07:54:50.0583130Z ##[group]Determining repository object format
+2026-10-24T07:54:50.0587260Z ##[endgroup]
+2026-10-24T07:54:50.0590580Z ##[group]Initializing the repository
+2026-10-24T07:54:50.0594200Z [command]/opt/homebrew/bin/git init /Users/runner/work/pandoc/pandoc
+2026-10-24T07:54:50.0946190Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-24T07:54:50.0948990Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-24T07:54:50.0951480Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-24T07:54:50.0954350Z hint: call:
+2026-10-24T07:54:50.0955440Z hint:
+2026-10-24T07:54:50.0956610Z hint: 	git config --global init.defaultBranch <name>
+2026-10-24T07:54:50.0957910Z hint:
+2026-10-24T07:54:50.0959540Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-24T07:54:50.0961880Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-24T07:54:50.0965700Z hint:
+2026-10-24T07:54:50.0967610Z hint: 	git branch -m <name>
+2026-10-24T07:54:50.0969680Z hint:
+2026-10-24T07:54:50.0971170Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-24T07:54:50.0979520Z Initialized empty Git repository in /Users/runner/work/pandoc/pandoc/.git/
+2026-10-24T07:54:50.0988780Z [command]/opt/homebrew/bin/git remote add origin https://github.com/jgm/pandoc
+2026-10-24T07:54:50.1144860Z ##[endgroup]
+2026-10-24T07:54:50.1148750Z ##[group]Disabling automatic garbage collection
+2026-10-24T07:54:50.1151860Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+2026-10-24T07:54:50.1306030Z ##[endgroup]
+2026-10-24T07:54:50.1310230Z ##[group]Setting up auth
+2026-10-24T07:54:50.1312310Z Removing SSH command configuration
+2026-10-24T07:54:50.1314620Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-24T07:54:50.1472290Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-24T07:54:50.3449560Z Removing HTTP extra header
+2026-10-24T07:54:50.3456340Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-24T07:54:50.3568350Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-24T07:54:50.4803930Z Removing includeIf entries pointing to credentials config files
+2026-10-24T07:54:50.4806950Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-24T07:54:50.4907790Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-24T07:54:50.7505290Z [command]/opt/homebrew/bin/git config --file /Users/runner/work/_temp/git-credentials-a41c2c99-79ff-4099-9131-0031ef0bad12.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-24T07:54:50.7834060Z [command]/opt/homebrew/bin/git config --local includeIf.gitdir:/Users/runner/work/pandoc/pandoc/.git.path /Users/runner/work/_temp/git-credentials-a41c2c99-79ff-4099-9131-0031ef0bad12.config
+2026-10-24T07:54:50.8143140Z [command]/opt/homebrew/bin/git config --local includeIf.gitdir:/Users/runner/work/pandoc/pandoc/.git/worktrees/*.path /Users/runner/work/_temp/git-credentials-a41c2c99-79ff-4099-9131-0031ef0bad12.config
+2026-10-24T07:54:50.8530950Z [command]/opt/homebrew/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-a41c2c99-79ff-4099-9131-0031ef0bad12.config
+2026-10-24T07:54:50.8839270Z [command]/opt/homebrew/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-a41c2c99-79ff-4099-9131-0031ef0bad12.config
+2026-10-24T07:54:50.8852420Z ##[endgroup]
+2026-10-24T07:54:50.8854210Z ##[group]Fetching the repository
+2026-10-24T07:54:50.8857280Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a3dce9e471c44e81c5f3fa4ef4c6beeef7c9a090:refs/remotes/origin/main
+2026-10-24T07:54:51.9622990Z From https://github.com/jgm/pandoc
+2026-10-24T07:54:51.9632230Z  * [new ref]         a3dce9e471c44e81c5f3fa4ef4c6beeef7c9a090 -> origin/main
+2026-10-24T07:54:51.9639140Z [command]/opt/homebrew/bin/git branch --list --remote origin/main
+2026-10-24T07:54:51.9774780Z   origin/main
+2026-10-24T07:54:51.9798350Z [command]/opt/homebrew/bin/git rev-parse refs/remotes/origin/main
+2026-10-24T07:54:51.9944550Z a3dce9e471c44e81c5f3fa4ef4c6beeef7c9a090
+2026-10-24T07:54:51.9955370Z ##[endgroup]
+2026-10-24T07:54:51.9959130Z ##[group]Determining the checkout info
+2026-10-24T07:54:51.9961010Z ##[endgroup]
+2026-10-24T07:54:51.9962620Z [command]/opt/homebrew/bin/git sparse-checkout disable
+2026-10-24T07:54:52.0220630Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-24T07:54:52.0362830Z ##[group]Checking out the ref
+2026-10-24T07:54:52.0364550Z [command]/opt/homebrew/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-10-24T07:54:52.8009070Z Switched to a new branch 'main'
+2026-10-24T07:54:52.8140790Z branch 'main' set up to track 'origin/main'.
+2026-10-24T07:54:52.8480820Z ##[endgroup]
+2026-10-24T07:54:52.8783520Z [command]/opt/homebrew/bin/git log -1 --format=%H
+2026-10-24T07:54:52.8884170Z a3dce9e471c44e81c5f3fa4ef4c6beeef7c9a090
+2026-10-24T07:54:52.9400510Z ##[group]Run echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+2026-10-24T07:54:52.9407080Z [36;1mecho "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"[0m
+2026-10-24T07:54:52.9411920Z [36;1mxcrun --sdk macosx --show-sdk-path[0m
+2026-10-24T07:54:52.9414210Z [36;1mxcrun --find ld[0m
+2026-10-24T07:54:52.9415690Z [36;1mld -v[0m
+2026-10-24T07:54:52.9556670Z shell: /bin/bash -e {0}
+2026-10-24T07:54:52.9557420Z env:
+2026-10-24T07:54:52.9558340Z   DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+2026-10-24T07:54:52.9559340Z ##[endgroup]
+2026-10-24T07:54:55.3639890Z /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk
+2026-10-24T07:54:57.1353950Z /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld
+2026-10-24T07:54:57.3601660Z @(#)PROGRAM:ld PROJECT:ld-1267
+2026-10-24T07:54:57.3603790Z BUILD 16:38:58 Jun  8 2026
+2026-10-24T07:54:57.3604970Z configured to support archs: armv6 armv7 armv7s arm64 arm64e arm64_32 i386 x86_64 x86_64h armv6m armv7k armv7m armv7em armv8m.main armv8.1m.main
+2026-10-24T07:54:57.3605660Z will use ld-classic for: armv6 armv7 armv7s i386 armv6m armv7k armv7m armv7em
+2026-10-24T07:54:57.3608130Z LTO support using: LLVM version 21.0.0 (static support for 30, runtime is 30)
+2026-10-24T07:54:57.3608860Z TAPI support using: Apple TAPI version 21.0.0 (tapi-2100.0.2.6)
+2026-10-24T07:54:57.4243360Z ##[group]Run brew install ghcup
+2026-10-24T07:54:57.4243770Z [36;1mbrew install ghcup[0m
+2026-10-24T07:54:57.4318950Z shell: /bin/bash -e {0}
+2026-10-24T07:54:57.4319480Z env:
+2026-10-24T07:54:57.4319840Z   DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+2026-10-24T07:54:57.4320600Z   SDKROOT: /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk
+2026-10-24T07:54:57.4321220Z ##[endgroup]
+2026-10-24T07:55:00.7520730Z [32m==>[0m [1mDownloading bottle manifests[0m
+2026-10-24T07:55:00.7629240Z ✔︎ Bottle Manifest ghcup (0.2.6.2)
+2026-10-24T07:55:00.9147840Z [32m==>[0m [1mFetching downloads for: [32mghcup[39m[0m
+2026-10-24T07:55:04.8511670Z ✔︎ Bottle ghcup (0.2.6.2)
+2026-10-24T07:55:04.8943570Z [34m==>[0m [1mPouring ghcup--0.2.6.2.arm64_tahoe.bottle.1.tar.gz[0m
+2026-10-24T07:55:09.2681770Z 🍺  /opt/homebrew/Cellar/ghcup/0.2.6.2: 10 files, 129MB
+2026-10-24T07:55:09.2707120Z [32m==>[0m [1mCaveats[0m
+2026-10-24T07:55:09.2802580Z Bash completion has been installed to:
+2026-10-24T07:55:09.3010600Z   /opt/homebrew/etc/bash_completion.d
+2026-10-24T07:55:09.3419970Z ##[group]Run ghcup install ghc --set 9.10
+2026-10-24T07:55:09.3420370Z [36;1mghcup install ghc --set 9.10[0m
+2026-10-24T07:55:09.3537210Z [36;1mghcup install cabal --set 3.14[0m
+2026-10-24T07:55:09.3537560Z [36;1mecho "$HOME/.ghcup/bin" >> "${GITHUB_PATH}"[0m
+2026-10-24T07:55:09.3603210Z shell: /bin/bash -e {0}
+2026-10-24T07:55:09.3603440Z env:
+2026-10-24T07:55:09.3603710Z   DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+2026-10-24T07:55:09.3604200Z   SDKROOT: /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk
+2026-10-24T07:55:09.3604800Z ##[endgroup]
+2026-10-24T07:55:09.5336010Z [1m[92m[ Info  ][0m[0m downloading: https://raw.githubusercontent.com/haskell/ghcup-metadata/master/ghcup-0.1.0.yaml as file /Users/runner/.ghcup/cache/ghcup-0.1.0.yaml
+2026-10-24T07:55:09.5536080Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+2026-10-24T07:55:09.5536970Z                                  Dload  Upload   Total   Spent    Left  Speed
+2026-10-24T07:55:09.5537280Z 
+2026-10-24T07:55:09.5908930Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+2026-10-24T07:55:09.5910100Z 100  664k  100  664k    0     0  17.3M      0 --:--:-- --:--:-- --:--:-- 17.5M
+2026-10-24T07:55:09.7006460Z [1m[93m[ Warn  ][0m[0m Assuming you meant version 9.10.3
+2026-10-24T07:55:09.7011450Z [1m[92m[ Info  ][0m[0m downloading: https://downloads.haskell.org/~ghc/9.10.3/ghc-9.10.3-aarch64-apple-darwin.tar.xz as file /Users/runner/.ghcup/tmp/ghcup-6026689a02905f69/ghc-9.10.3-aarch64-apple-darwin.tar.xz
+2026-10-24T07:55:09.7265270Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+2026-10-24T07:55:09.7270590Z                                  Dload  Upload   Total   Spent    Left  Speed
+2026-10-24T07:55:09.7281180Z 
+2026-10-24T07:55:10.4604570Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+2026-10-24T07:55:11.4611290Z  39  216M   39 86.0M    0     0   117M      0  0:00:01 --:--:--  0:00:01  117M
+2026-10-24T07:55:11.5017860Z  98  216M   98  212M    0     0   122M      0  0:00:01  0:00:01 --:--:--  122M
+2026-10-24T07:55:11.5047280Z 100  216M  100  216M    0     0   122M      0  0:00:01  0:00:01 --:--:--  122M
+2026-10-24T07:55:11.5048590Z [1m[92m[ Info  ][0m[0m verifying digest of: ghc-9.10.3-aarch64-apple-darwin.tar.xz
+2026-10-24T07:55:13.1964810Z [1m[92m[ Info  ][0m[0m Unpacking: ghc-9.10.3-aarch64-apple-darwin.tar.xz to /Users/runner/.ghcup/tmp/ghcup-d8bb081154c2a06a
+2026-10-24T07:55:39.0998940Z [1m[92m[ Info  ][0m[0m Installing ghc
+2026-10-24T07:55:39.1049190Z 
+2026-10-24T07:55:39.1049750Z 
+2026-10-24T07:55:39.1050350Z 
+2026-10-24T07:55:39.1050440Z 
+2026-10-24T07:55:39.1050520Z 
+2026-10-24T07:55:39.1050990Z 
+2026-10-24T07:55:57.0662610Z 
+2026-10-24T07:55:57.1013250Z [6A[0J
+2026-10-24T07:55:57.1013860Z 
+2026-10-24T07:55:57.1014000Z 
+2026-10-24T07:55:57.1014460Z 
+2026-10-24T07:55:57.1014610Z 
+2026-10-24T07:55:57.1031020Z 
+2026-10-24T07:59:37.2291930Z 
+2026-10-24T07:59:55.3137860Z [6A[0J[1m[92m[ Info  ][0m[0m ghc installation successful
+2026-10-24T07:59:55.3187460Z [1m[93m[ Warn  ][0m[0m Assuming you meant version 9.10.3
+2026-10-24T07:59:55.3190620Z [1m[93m[ Warn  ][0m[0m New ghc version available. If you want to install this latest version, run 'ghcup install ghc 9.14.1-r0
+2026-10-24T07:59:55.3191580Z [1m[93m[ ...   ] [0m[0mTo skip this check in the future, export GHCUP_SKIP_UPDATE_CHECK=1
+2026-10-24T07:59:55.5145590Z [1m[93m[ Warn  ][0m[0m Assuming you meant version 3.14.2.0
+2026-10-24T07:59:55.5156540Z [1m[92m[ Info  ][0m[0m downloading: https://downloads.haskell.org/~ghcup/unofficial-bindists/cabal/3.14.2.0/cabal-install-3.14.2.0-aarch64-apple-darwin.tar.xz as file /Users/runner/.ghcup/tmp/ghcup-49661235fe5e033c/cabal-install-3.14.2.0-aarch64-apple-darwin.tar.xz
+2026-10-24T07:59:55.5367900Z   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+2026-10-24T07:59:55.5369890Z                                  Dload  Upload   Total   Spent    Left  Speed
+2026-10-24T07:59:55.5370230Z 
+2026-10-24T07:59:55.7854620Z   0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+2026-10-24T07:59:55.7858700Z 100 12.3M  100 12.3M    0     0  49.6M      0 --:--:-- --:--:-- --:--:-- 49.6M
+2026-10-24T07:59:55.7885850Z [1m[92m[ Info  ][0m[0m verifying digest of: cabal-install-3.14.2.0-aarch64-apple-darwin.tar.xz
+2026-10-24T07:59:55.8734380Z [1m[92m[ Info  ][0m[0m Unpacking: cabal-install-3.14.2.0-aarch64-apple-darwin.tar.xz to /Users/runner/.ghcup/tmp/ghcup-7301b1b89e2e3ea3
+2026-10-24T07:59:56.8928660Z [1m[92m[ Info  ][0m[0m Installing cabal
+2026-10-24T07:59:57.1846630Z [1m[92m[ Info  ][0m[0m cabal installation successful
+2026-10-24T07:59:57.1874910Z [1m[93m[ Warn  ][0m[0m Assuming you meant version 3.14.2.0
+2026-10-24T07:59:57.1877960Z [1m[93m[ Warn  ][0m[0m New cabal version available. If you want to install this latest version, run 'ghcup install cabal 3.18.2.0-r0
+2026-10-24T07:59:57.1879370Z [1m[93m[ ...   ] [0m[0mNew ghc version available. If you want to install this latest version, run 'ghcup install ghc 9.14.1-r0
+2026-10-24T07:59:57.1880430Z [1m[93m[ ...   ] [0m[0mTo skip this check in the future, export GHCUP_SKIP_UPDATE_CHECK=1
+2026-10-24T07:59:57.2447670Z ##[group]Run cabal update
+2026-10-24T07:59:57.2448080Z [36;1mcabal update[0m
+2026-10-24T07:59:57.2448530Z [36;1mecho "dir=$(cabal path -z --store-dir)" >> "$GITHUB_OUTPUT"[0m
+2026-10-24T07:59:57.2600780Z shell: /bin/bash -e {0}
+2026-10-24T07:59:57.2604380Z env:
+2026-10-24T07:59:57.2604830Z   DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+2026-10-24T07:59:57.2605410Z   SDKROOT: /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk
+2026-10-24T07:59:57.2606060Z ##[endgroup]
+2026-10-24T07:59:57.4313640Z Config file path source is default config file.
+2026-10-24T07:59:57.4314730Z Config file not found: /Users/runner/.config/cabal/config
+2026-10-24T07:59:57.4321260Z Writing default configuration to /Users/runner/.config/cabal/config
+2026-10-24T07:59:58.4361540Z Cloning into '/Users/runner/work/pandoc/pandoc/dist-newstyle/src/citeproc-1b2363bec08fba3c2f337e0c09deaa013b49822166017067f42c0c3095b6c6c1'...
+2026-10-24T07:59:59.4177470Z HEAD is now at 9ea211d Group name-less cites only when the text before their dates matches
+2026-10-24T08:00:00.0635340Z Cloning into '/Users/runner/work/pandoc/pandoc/dist-newstyle/src/texmath-fbf47471358871e5ab3eccf57ca2aab2dd5137497f4843b3ee5ddf21933accc3'...
+2026-10-24T08:00:01.9662340Z HEAD is now at ddc2530c TeX reader: accept empty delimiters in \genfrac (#300)
+2026-10-24T08:00:03.3903000Z Cloning into '/Users/runner/work/pandoc/pandoc/dist-newstyle/src/gridtables-227c740ad0bc47a30d9306fdff16c74279b8611906638584ac00c580ccbf1d9d'...
+2026-10-24T08:00:03.9255710Z HEAD is now at 7c9d6df Fix a bug in computing table alignments.
+2026-10-24T08:00:04.2595900Z Configuration is affected by the following files:
+2026-10-24T08:00:04.2596510Z - cabal.project
+2026-10-24T08:00:04.3245410Z Downloading the latest package list from hackage.haskell.org
+2026-10-24T08:00:20.9066450Z Package list of hackage.haskell.org has been updated.
+2026-10-24T08:00:21.0428730Z The index-state is set to 2026-10-24T07:10:01Z.
+2026-10-24T08:00:22.0017600Z ##[group]Run actions/cache@v6
+2026-10-24T08:00:22.0017970Z with:
+2026-10-24T08:00:22.0018550Z   path: /Users/runner/.local/state/cabal/store
+
+2026-10-24T08:00:22.0019750Z   key: macOS-nightly-9.10-3.14-cabal-global-***-354b3ff52add21cd98f7f062e1bc7c314f58472c3d7904ab4ac9a1eea9a18c2a
+2026-10-24T08:00:22.0020520Z   restore-keys: macOS-nightly-9.10-3.14-cabal-global-***-
+
+2026-10-24T08:00:22.0020930Z   enableCrossOsArchive: false
+2026-10-24T08:00:22.0021250Z   fail-on-cache-miss: false
+2026-10-24T08:00:22.0021540Z   lookup-only: false
+2026-10-24T08:00:22.0022510Z   save-always: false
+2026-10-24T08:00:22.0022840Z env:
+2026-10-24T08:00:22.0023110Z   DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+2026-10-24T08:00:22.0023760Z   SDKROOT: /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk
+2026-10-24T08:00:22.0024380Z ##[endgroup]
+2026-10-24T08:00:22.4431510Z Cache not found for input keys: macOS-nightly-9.10-3.14-cabal-global-***-354b3ff52add21cd98f7f062e1bc7c314f58472c3d7904ab4ac9a1eea9a18c2a, macOS-nightly-9.10-3.14-cabal-global-***-
+2026-10-24T08:00:22.4480700Z ##[group]Run cabal build --dependencies-only -fnightly -fembed_data_files -fhttp pandoc-cli
+2026-10-24T08:00:22.4481350Z [36;1mcabal build --dependencies-only -fnightly -fembed_data_files -fhttp pandoc-cli[0m
+2026-10-24T08:00:22.4523920Z shell: /bin/bash -e {0}
+2026-10-24T08:00:22.4524510Z env:
+2026-10-24T08:00:22.4524940Z   DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+2026-10-24T08:00:22.4525630Z   SDKROOT: /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk
+2026-10-24T08:00:22.4526350Z ##[endgroup]
+2026-10-24T08:00:23.1700160Z HEAD is now at 9ea211d Group name-less cites only when the text before their dates matches
+2026-10-24T08:00:25.0240090Z HEAD is now at ddc2530c TeX reader: accept empty delimiters in \genfrac (#300)
+2026-10-24T08:00:26.5772130Z HEAD is now at 7c9d6df Fix a bug in computing table alignments.
+2026-10-24T08:00:26.8826490Z Configuration is affected by the following files:
+2026-10-24T08:00:26.8826890Z - cabal.project
+2026-10-24T08:00:28.6564540Z Resolving dependencies...
+2026-10-24T08:00:32.4758520Z Build profile: -w ghc-9.10.3 -O1
+2026-10-24T08:00:32.4759560Z In order, the following will be built (use -v for more details):
+2026-10-24T08:00:32.4760180Z  - OneTuple-0.4.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4760710Z  - Only-0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4761390Z  - StateVar-1.2.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4762220Z  - blaze-builder-0.4.4.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4762690Z  - base-compat-0.15.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4763600Z  - base-unicode-symbols-0.2.4.2 (lib:base-unicode-symbols) (requires download & build)
+2026-10-24T08:00:32.4764290Z  - base-orphans-0.9.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4764840Z  - base16-bytestring-1.0.2.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4765710Z  - base64-bytestring-1.2.1.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4766420Z  - bsb-http-chunked-0.0.0.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4767000Z  - byteorder-1.0.4 (lib:byteorder) (requires download & build)
+2026-10-24T08:00:32.4767480Z  - cabal-doctest-1.0.13 (lib) (requires download & build)
+2026-10-24T08:00:32.4768000Z  - character-ps-0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4769090Z  - call-stack-0.4.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4769630Z  - colour-2.3.7 (lib) (requires download & build)
+2026-10-24T08:00:32.4770140Z  - cereal-0.5.8.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4770620Z  - cryptohash-md5-0.11.101.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4771180Z  - digest-0.0.2.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4771680Z  - dlist-1.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4772150Z  - data-default-0.8.0.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4772690Z  - file-embed-0.0.16.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4773150Z  - haddock-library-1.11.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4773650Z  - half-0.3.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4774160Z  - happy-lib-2.2 (lib:grammar) (requires download & build)
+2026-10-24T08:00:32.4774610Z  - hsc2hs-0.68.10 (exe:hsc2hs) (requires download & build)
+2026-10-24T08:00:32.4775170Z  - hashable-1.5.1.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4786830Z  - jira-wiki-markup-1.5.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4787240Z  - lua-2.3.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4787720Z  - libyaml-clib-0.2.5 (lib) (requires download & build)
+2026-10-24T08:00:32.4788090Z  - old-locale-1.0.0.7 (lib) (requires download & build)
+2026-10-24T08:00:32.4788660Z  - alex-3.5.4.2 (exe:alex) (requires download & build)
+2026-10-24T08:00:32.4789440Z  - emojis-0.1.5 (lib) (requires download & build)
+2026-10-24T08:00:32.4790110Z  - mime-types-0.1.2.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4791770Z  - unicode-data-0.9.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4792300Z  - indexed-traversable-0.1.5 (lib) (requires download & build)
+2026-10-24T08:00:32.4793760Z  - unliftio-core-0.2.1.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4794190Z  - integer-logarithms-1.0.5 (lib) (requires download & build)
+2026-10-24T08:00:32.4794770Z  - network-byte-order-0.1.8 (lib) (requires download & build)
+2026-10-24T08:00:32.4795160Z  - unix-compat-0.7.4.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4795590Z  - appar-0.1.8 (lib:appar) (requires download & build)
+2026-10-24T08:00:32.4796030Z  - primitive-0.9.1.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4796450Z  - prettyprinter-1.7.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4797110Z  - erf-2.0.0.0 (lib:erf) (requires download & build)
+2026-10-24T08:00:32.4797470Z  - regex-base-0.94.0.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4798030Z  - ram-0.22.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4798600Z  - isocline-1.0.9 (lib) (requires download & build)
+2026-10-24T08:00:32.4799020Z  - safe-0.3.21 (lib) (requires download & build)
+2026-10-24T08:00:32.4799410Z  - some-1.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4799770Z  - sop-core-0.5.0.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4800250Z  - split-0.2.5.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4800690Z  - splitmix-0.1.3.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4801030Z  - assoc-1.1.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4801430Z  - easy-file-0.2.5 (lib) (requires download & build)
+2026-10-24T08:00:32.4801840Z  - syb-0.7.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4802550Z  - auto-update-0.2.8 (lib) (requires download & build)
+2026-10-24T08:00:32.4802930Z  - utf8-string-1.0.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4803370Z  - tagged-0.8.11 (lib) (requires download & build)
+2026-10-24T08:00:32.4803790Z  - tagsoup-0.14.8 (lib) (requires download & build)
+2026-10-24T08:00:32.4804180Z  - th-abstraction-0.7.2.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4804600Z  - th-compat-0.1.7 (lib) (requires download & build)
+2026-10-24T08:00:32.4804990Z  - time-hourglass-0.3.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4805400Z  - time-manager-0.4.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4805840Z  - template-haskell-lift-0.1.0.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4806320Z  - transformers-compat-0.7.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4806930Z  - attoparsec-0.14.4 (lib:attoparsec-internal) (requires download & build)
+2026-10-24T08:00:32.4807380Z  - typst-symbols-0.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4807840Z  - vector-stream-0.1.0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4808370Z  - word8-0.1.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4808710Z  - xml-1.3.14 (lib:xml) (requires download & build)
+2026-10-24T08:00:32.4809190Z  - xml-types-0.3.8 (lib) (requires download & build)
+2026-10-24T08:00:32.4809620Z  - zlib-clib-1.3.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4810070Z  - contravariant-1.5.6 (lib) (requires download & build)
+2026-10-24T08:00:32.4810560Z  - blaze-markup-0.8.3.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4811010Z  - text-conversions-0.3.1.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4811530Z  - HUnit-1.6.2.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4812400Z  - ansi-terminal-types-1.1.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4812910Z  - data-default-class-0.2.0.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4813520Z  - happy-lib-2.2 (lib:frontend) (requires download & build)
+2026-10-24T08:00:32.4814060Z  - happy-lib-2.2 (lib:tabular) (requires download & build)
+2026-10-24T08:00:32.4814570Z  - unix-time-0.5.0 (lib:unix-time) (requires download & build)
+2026-10-24T08:00:32.4815160Z  - network-3.2.9.0 (lib:network) (requires download & build)
+2026-10-24T08:00:32.4815850Z  - text-short-0.1.6.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4816280Z  - time-compat-1.9.9 (lib) (requires download & build)
+2026-10-24T08:00:32.4816710Z  - ordered-containers-0.2.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4817170Z  - psqueues-0.2.8.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4817600Z  - unordered-containers-0.2.21 (lib) (requires download & build)
+2026-10-24T08:00:32.4817990Z  - data-fix-0.3.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4818450Z  - case-insensitive-1.2.1.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4818870Z  - lpeg-1.1.0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4819210Z  - hslua-core-2.3.2.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4819700Z  - unicode-transforms-0.4.0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4820070Z  - ech-config-0.0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4820480Z  - scientific-0.3.10.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4820880Z  - resourcet-1.3.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4821260Z  - integer-conversion-0.1.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4821700Z  - cborg-0.2.10.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4822180Z  - regex-tdfa-1.3.2.7 (lib) (requires download & build)
+2026-10-24T08:00:32.4822570Z  - doclayout-0.6 (lib) (requires download & build)
+2026-10-24T08:00:32.4822960Z  - random-1.3.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4823270Z  - these-1.2.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4823670Z  - distributive-0.6.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4824010Z  - boring-0.2.2.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4825520Z  - th-lift-0.8.7 (lib) (requires download & build)
+2026-10-24T08:00:32.4825990Z  - generics-sop-0.5.1.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4826380Z  - network-uri-2.6.4.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4826860Z  - quote-quot-0.2.2.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4827390Z  - transformers-base-0.4.6.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4828130Z  - mmorph-1.2.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4828750Z  - Glob-0.10.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4829330Z  - vector-0.13.2.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4829970Z  - zlib-0.7.1.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4830410Z  - blaze-html-0.9.2.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4830920Z  - ansi-terminal-1.1.5 (lib) (requires download & build)
+2026-10-24T08:00:32.4831450Z  - cookie-0.5.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4831840Z  - happy-lib-2.2 (lib:backend-glr) (requires download & build)
+2026-10-24T08:00:32.4832400Z  - happy-lib-2.2 (lib:backend-lalr) (requires download & build)
+2026-10-24T08:00:32.4832820Z  - fast-logger-3.2.8 (lib) (requires download & build)
+2026-10-24T08:00:32.4833260Z  - simple-sendfile-0.2.32 (lib) (requires download & build)
+2026-10-24T08:00:32.4833690Z  - recv-0.1.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4834040Z  - iproute-1.7.15 (lib) (requires download & build)
+2026-10-24T08:00:32.4834480Z  - crypton-socks-0.6.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4834810Z  - base64-2.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4835170Z  - base16-2.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4836080Z  - network-control-0.1.7 (lib) (requires download & build)
+2026-10-24T08:00:32.4836450Z  - vault-0.3.2.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4836940Z  - async-2.2.6 (lib) (requires download & build)
+2026-10-24T08:00:32.4837360Z  - uniplate-1.6.13 (lib) (requires download & build)
+2026-10-24T08:00:32.4837880Z  - http-types-0.12.6 (lib) (requires download & build)
+2026-10-24T08:00:32.4838240Z  - http-media-0.8.1.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4838700Z  - hslua-repl-0.1.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4839430Z  - hslua-marshalling-2.3.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4839910Z  - hslua-list-1.1.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4840360Z  - commonmark-0.3.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4840790Z  - attoparsec-0.14.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4841310Z  - text-iso8601-0.1.1.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4841880Z  - gridtables-0.1.1.0 (lib) (requires build)
+2026-10-24T08:00:32.4842270Z  - djot-0.1.4.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4842710Z  - temporary-1.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4843130Z  - uuid-types-1.0.6.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4843600Z  - QuickCheck-2.18.0.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4844080Z  - strict-0.5.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4844410Z  - comonad-5.0.10 (lib) (requires download & build)
+2026-10-24T08:00:32.4844810Z  - dec-0.0.6 (lib) (requires download & build)
+2026-10-24T08:00:32.4845220Z  - constraints-0.14.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4845780Z  - text-builder-linear-0.1.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4846310Z  - monad-control-1.0.3.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4846720Z  - th-lift-instances-0.1.20 (lib) (requires download & build)
+2026-10-24T08:00:32.4847270Z  - indexed-traversable-instances-0.1.2.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4847690Z  - bitvec-1.1.6.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4848110Z  - zip-archive-0.5 (lib) (requires download & build)
+2026-10-24T08:00:32.4848570Z  - JuicyPixels-3.3.9 (lib) (requires download & build)
+2026-10-24T08:00:32.4848980Z  - prettyprinter-ansi-terminal-1.1.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4849500Z  - happy-lib-2.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4849900Z  - crypton-pem-0.3.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4850390Z  - crypton-asn1-types-0.4.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4850820Z  - crypton-2.0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4851210Z  - typed-process-0.2.13.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4851710Z  - streaming-commons-0.2.3.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4852080Z  - wai-3.2.5 (lib) (requires download & build)
+2026-10-24T08:00:32.4852500Z  - http-semantics-0.4.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4852860Z  - hslua-typing-0.2.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4853340Z  - hslua-classes-2.3.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4853780Z  - hslua-cli-1.4.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4854150Z  - commonmark-extensions-0.2.7.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4854680Z  - http-date-0.0.11 (lib) (requires download & build)
+2026-10-24T08:00:32.4855120Z  - cassava-0.5.4.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4855590Z  - http-api-data-0.7 (lib) (requires download & build)
+2026-10-24T08:00:32.4856000Z  - text-builder-core-0.1.1.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4856510Z  - serialise-0.2.6.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4856890Z  - bifunctors-5.6.3 (lib) (requires download & build)
+2026-10-24T08:00:32.4857350Z  - singleton-bool-0.1.8 (lib) (requires download & build)
+2026-10-24T08:00:32.4895960Z  - yamlet-1.0.0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4896680Z  - unicode-collation-0.1.3.7 (lib) (requires download & build)
+2026-10-24T08:00:32.4897590Z  - witherable-0.5 (lib) (requires download & build)
+2026-10-24T08:00:32.4898000Z  - vector-algorithms-0.9.1.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4898570Z  - optparse-applicative-0.19.0.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4899260Z  - happy-2.2 (exe:happy) (requires download & build)
+2026-10-24T08:00:32.4900000Z  - crypton-asn1-parse-0.10.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4900590Z  - crypton-asn1-encoding-0.10.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4901070Z  - mlkem-0.2.3.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4933340Z  - hpke-0.2.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4933810Z  - http-client-0.7.19 (lib) (requires download & build)
+2026-10-24T08:00:32.4934430Z  - wai-logger-2.5.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4934970Z  - wai-cors-0.2.7 (lib) (requires download & build)
+2026-10-24T08:00:32.4935390Z  - http2-5.4.9 (lib) (requires download & build)
+2026-10-24T08:00:32.4936020Z  - hslua-objectorientation-2.5.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4936680Z  - text-builder-1.0.0.5 (lib) (requires download & build)
+2026-10-24T08:00:32.4967000Z  - semigroupoids-6.0.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4967580Z  - mono-traversable-1.0.21.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4968060Z  - toml-parser-2.0.2.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4968410Z  - crypton-x509-1.9.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4968860Z  - hslua-packaging-2.4.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4969270Z  - semialign-1.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4969790Z  - conduit-1.3.6.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4970150Z  - warp-3.4.16 (lib) (requires download & build)
+2026-10-24T08:00:32.4970550Z  - crypton-x509-store-1.9.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4970870Z  - hslua-module-zip-1.2.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4971210Z  - hslua-module-version-1.2.0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4971640Z  - hslua-module-text-1.2.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4971980Z  - hslua-module-system-1.3.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4972380Z  - hslua-module-path-1.2.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4972910Z  - aeson-2.2.5.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4973250Z  - libyaml-0.1.4 (lib) (requires download & build)
+2026-10-24T08:00:32.4973640Z  - conduit-extra-1.3.8 (lib) (requires download & build)
+2026-10-24T08:00:32.4973980Z  - crypton-x509-validation-1.9.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4974330Z  - crypton-x509-system-1.9.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4974860Z  - yamlet-aeson-1.0.0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4975220Z  - wai-extra-3.1.18 (lib) (requires download & build)
+2026-10-24T08:00:32.4975630Z  - servant-0.20.3.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4976030Z  - aeson-pretty-0.8.11 (lib) (requires download & build)
+2026-10-24T08:00:32.4976400Z  - asciidoc-0.1.1.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4976710Z  - ipynb-0.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4977040Z  - pandoc-types-1.23.1.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4977570Z  - hslua-aeson-2.3.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4978000Z  - doctemplates-0.11.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4978290Z  - yaml-0.11.11.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4978660Z  - xml-conduit-1.10.1.0 (lib:xml-conduit) (requires download & build)
+2026-10-24T08:00:32.4979880Z  - tls-2.4.6 (lib) (requires download & build)
+2026-10-24T08:00:32.4980360Z  - wai-app-static-3.2.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4981480Z  - texmath-0.13.3.1 (lib) (requires build)
+2026-10-24T08:00:32.4981930Z  - commonmark-pandoc-0.3.0.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4982350Z  - hslua-2.5.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4982620Z  - typst-0.12 (lib) (requires download & build)
+2026-10-24T08:00:32.4983030Z  - skylighting-core-0.15 (lib) (requires download & build)
+2026-10-24T08:00:32.4983460Z  - pandoc-3.12.1 (lib:xml-light) (first run)
+2026-10-24T08:00:32.4983710Z  - citeproc-0.14.1 (lib) (requires build)
+2026-10-24T08:00:32.4984610Z  - crypton-connection-0.4.6 (lib) (requires download & build)
+2026-10-24T08:00:32.4985060Z  - servant-server-0.20.3.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4985390Z  - pandoc-lua-marshal-0.3.2.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4985760Z  - hslua-module-doclayout-1.2.1.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4986130Z  - skylighting-format-typst-0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4986490Z  - skylighting-format-ansi-0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4986840Z  - skylighting-format-latex-0.1 (lib) (requires download & build)
+2026-10-24T08:00:32.4987200Z  - skylighting-format-context-0.1.0.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4987610Z  - skylighting-format-blaze-html-0.1.2.2 (lib) (requires download & build)
+2026-10-24T08:00:32.4987980Z  - http-client-tls-0.4.0 (lib) (requires download & build)
+2026-10-24T08:00:32.4988270Z  - skylighting-0.15 (lib) (requires download & build)
+2026-10-24T08:00:32.4988520Z  - pandoc-3.12.1 (lib) (first run)
+2026-10-24T08:00:32.4988730Z  - pandoc-server-0.1.4.1 (lib) (first run)
+2026-10-24T08:00:32.4988960Z  - pandoc-lua-engine-0.5.4.1 (lib) (first run)
+2026-10-24T08:00:32.7162350Z Downloading  zlib-clib-1.3.2
+2026-10-24T08:00:32.8842840Z Downloaded   zlib-clib-1.3.2
+2026-10-24T08:00:32.8843790Z Downloading  libyaml-clib-0.2.5
+2026-10-24T08:00:33.0794520Z Downloaded   libyaml-clib-0.2.5
+2026-10-24T08:00:33.0794830Z Downloading  base-compat-0.15.0
+2026-10-24T08:00:33.2621560Z Downloaded   base-compat-0.15.0
+2026-10-24T08:00:33.2621870Z Downloading  base-unicode-symbols-0.2.4.2
+2026-10-24T08:00:33.3797870Z Downloaded   base-unicode-symbols-0.2.4.2
+2026-10-24T08:00:33.3815670Z Downloading  base-orphans-0.9.4
+2026-10-24T08:00:33.4886000Z Downloaded   base-orphans-0.9.4
+2026-10-24T08:00:33.4886420Z Downloading  byteorder-1.0.4
+2026-10-24T08:00:33.6710460Z Downloaded   byteorder-1.0.4
+2026-10-24T08:00:33.6710910Z Downloading  character-ps-0.1
+2026-10-24T08:00:33.7931430Z Downloaded   character-ps-0.1
+2026-10-24T08:00:33.7932800Z Downloading  call-stack-0.4.0
+2026-10-24T08:00:33.9733500Z Downloaded   call-stack-0.4.0
+2026-10-24T08:00:33.9762590Z Downloading  colour-2.3.7
+2026-10-24T08:00:34.0763650Z Downloaded   colour-2.3.7
+2026-10-24T08:00:34.0763880Z Downloading  lua-2.3.4
+2026-10-24T08:00:34.2822450Z Downloaded   lua-2.3.4
+2026-10-24T08:00:34.2822790Z Downloading  old-locale-1.0.0.7
+2026-10-24T08:00:34.5417120Z Downloaded   old-locale-1.0.0.7
+2026-10-24T08:00:34.5417670Z Downloading  lpeg-1.1.0.1
+2026-10-24T08:00:34.7777940Z Downloaded   lpeg-1.1.0.1
+2026-10-24T08:00:34.7778220Z Downloading  unicode-data-0.9.0
+2026-10-24T08:00:34.8950500Z Downloaded   unicode-data-0.9.0
+2026-10-24T08:00:34.8950820Z Downloading  ansi-terminal-types-1.1.3
+2026-10-24T08:00:35.0013870Z Downloaded   ansi-terminal-types-1.1.3
+2026-10-24T08:00:35.0014200Z Downloading  ansi-terminal-1.1.5
+2026-10-24T08:00:35.1117390Z Downloaded   ansi-terminal-1.1.5
+2026-10-24T08:00:35.1118200Z Downloading  erf-2.0.0.0
+2026-10-24T08:00:35.2582380Z Downloaded   erf-2.0.0.0
+2026-10-24T08:00:35.2582950Z Downloading  safe-0.3.21
+2026-10-24T08:00:35.4585110Z Downloaded   safe-0.3.21
+2026-10-24T08:00:35.4585350Z Downloading  split-0.2.5.1
+2026-10-24T08:00:35.6458250Z Downloaded   split-0.2.5.1
+2026-10-24T08:00:35.6458840Z Downloading  assoc-1.1.1
+2026-10-24T08:00:35.7680170Z Downloaded   assoc-1.1.1
+2026-10-24T08:00:35.7680460Z Downloading  syb-0.7.4
+2026-10-24T08:00:35.8754720Z Downloaded   syb-0.7.4
+2026-10-24T08:00:35.8755310Z Downloading  unliftio-core-0.2.1.0
+2026-10-24T08:00:35.9944920Z Downloaded   unliftio-core-0.2.1.0
+2026-10-24T08:00:35.9945610Z Downloading  transformers-compat-0.7.2
+2026-10-24T08:00:36.1290870Z Downloaded   transformers-compat-0.7.2
+2026-10-24T08:00:36.1291160Z Downloading  mmorph-1.2.2
+2026-10-24T08:00:36.3078640Z Downloaded   mmorph-1.2.2
+2026-10-24T08:00:36.3079370Z Downloading  vector-stream-0.1.0.1
+2026-10-24T08:00:36.4128380Z Downloaded   vector-stream-0.1.0.1
+2026-10-24T08:00:36.4129960Z Downloading  word8-0.1.3
+2026-10-24T08:00:36.5307990Z Downloaded   word8-0.1.3
+2026-10-24T08:00:36.5308400Z Downloading  dlist-1.0
+2026-10-24T08:00:36.6354300Z Downloaded   dlist-1.0
+2026-10-24T08:00:36.6354590Z Downloading  base16-bytestring-1.0.2.0
+2026-10-24T08:00:36.8245960Z Downloaded   base16-bytestring-1.0.2.0
+2026-10-24T08:00:36.8246440Z Downloading  base64-bytestring-1.2.1.0
+2026-10-24T08:00:36.9461730Z Downloaded   base64-bytestring-1.2.1.0
+2026-10-24T08:00:36.9464240Z Downloading  bsb-http-chunked-0.0.0.4
+2026-10-24T08:00:37.2034460Z Downloaded   bsb-http-chunked-0.0.0.4
+2026-10-24T08:00:37.2034810Z Downloading  cryptohash-md5-0.11.101.0
+2026-10-24T08:00:37.3106380Z Downloaded   cryptohash-md5-0.11.101.0
+2026-10-24T08:00:37.3107180Z Downloading  digest-0.0.2.1
+2026-10-24T08:00:37.5101140Z Downloaded   digest-0.0.2.1
+2026-10-24T08:00:37.5101610Z Downloading  network-byte-order-0.1.8
+2026-10-24T08:00:37.6212000Z Downloaded   network-byte-order-0.1.8
+2026-10-24T08:00:37.6212290Z Downloading  appar-0.1.8
+2026-10-24T08:00:37.7328250Z Downloaded   appar-0.1.8
+2026-10-24T08:00:37.7328510Z Downloading  utf8-string-1.0.2
+2026-10-24T08:00:37.8529270Z Downloaded   utf8-string-1.0.2
+2026-10-24T08:00:38.0377320Z Downloading  cereal-0.5.8.3
+2026-10-24T08:00:38.0377570Z Downloaded   cereal-0.5.8.3
+2026-10-24T08:00:38.0377760Z Downloading  data-default-0.8.0.2
+2026-10-24T08:00:38.1475320Z Downloaded   data-default-0.8.0.2
+2026-10-24T08:00:38.1475880Z Downloading  data-default-class-0.2.0.0
+2026-10-24T08:00:38.2667070Z Downloaded   data-default-class-0.2.0.0
+2026-10-24T08:00:38.2667640Z Downloading  half-0.3.3
+2026-10-24T08:00:38.3780610Z Downloaded   half-0.3.3
+2026-10-24T08:00:38.3781150Z Downloading  th-abstraction-0.7.2.0
+2026-10-24T08:00:38.4911810Z Downloaded   th-abstraction-0.7.2.0
+2026-10-24T08:00:38.4912160Z Downloading  th-compat-0.1.7
+2026-10-24T08:00:38.6172800Z Downloaded   th-compat-0.1.7
+2026-10-24T08:00:38.6281680Z Downloading  th-lift-0.8.7
+2026-10-24T08:00:38.8185220Z Downloaded   th-lift-0.8.7
+2026-10-24T08:00:38.8190980Z Downloading  template-haskell-lift-0.1.0.0
+2026-10-24T08:00:38.9436330Z Downloaded   template-haskell-lift-0.1.0.0
+2026-10-24T08:00:38.9438320Z Downloading  quote-quot-0.2.2.0
+2026-10-24T08:00:39.0850970Z Downloaded   quote-quot-0.2.2.0
+2026-10-24T08:00:39.0851400Z Downloading  primitive-0.9.1.0
+2026-10-24T08:00:39.2468100Z Downloaded   primitive-0.9.1.0
+2026-10-24T08:00:39.2468420Z Downloading  ram-0.22.1
+2026-10-24T08:00:39.3970090Z Downloaded   ram-0.22.1
+2026-10-24T08:00:39.4076870Z Downloading  some-1.1
+2026-10-24T08:00:39.6015350Z Downloaded   some-1.1
+2026-10-24T08:00:39.6016750Z Downloading  sop-core-0.5.0.2
+2026-10-24T08:00:39.8564310Z Downloaded   sop-core-0.5.0.2
+2026-10-24T08:00:39.8597550Z Downloading  generics-sop-0.5.1.4
+2026-10-24T08:00:40.0694390Z Downloaded   generics-sop-0.5.1.4
+2026-10-24T08:00:40.0695470Z Downloading  splitmix-0.1.3.2
+2026-10-24T08:00:40.2727570Z Downloaded   splitmix-0.1.3.2
+2026-10-24T08:00:40.2731430Z Downloading  random-1.3.1
+2026-10-24T08:00:40.5109210Z Downloaded   random-1.3.1
+2026-10-24T08:00:40.5109550Z Downloading  tagged-0.8.11
+2026-10-24T08:00:40.6516960Z Downloaded   tagged-0.8.11
+2026-10-24T08:00:40.6519330Z Downloading  boring-0.2.2.1
+2026-10-24T08:00:40.7998790Z Downloaded   boring-0.2.2.1
+2026-10-24T08:00:40.7999630Z Downloading  dec-0.0.6
+2026-10-24T08:00:41.0061290Z Downloaded   dec-0.0.6
+2026-10-24T08:00:41.0063270Z Downloading  singleton-bool-0.1.8
+2026-10-24T08:00:41.1275530Z Downloaded   singleton-bool-0.1.8
+2026-10-24T08:00:41.1275990Z Downloading  distributive-0.6.3
+2026-10-24T08:00:41.2633960Z Downloaded   distributive-0.6.3
+2026-10-24T08:00:41.2634430Z Downloading  time-hourglass-0.3.0
+2026-10-24T08:00:41.4548950Z Downloaded   time-hourglass-0.3.0
+2026-10-24T08:00:41.4566420Z Downloading  vector-0.13.2.0
+2026-10-24T08:00:41.5857940Z Downloaded   vector-0.13.2.0
+2026-10-24T08:00:41.5858370Z Downloading  bitvec-1.1.6.0
+2026-10-24T08:00:41.7926650Z Downloaded   bitvec-1.1.6.0
+2026-10-24T08:00:41.7927410Z Downloading  vector-algorithms-0.9.1.0
+2026-10-24T08:00:41.9083140Z Downloaded   vector-algorithms-0.9.1.0
+2026-10-24T08:00:41.9083570Z Downloading  happy-lib-2.2
+2026-10-24T08:00:42.1002320Z Downloaded   happy-lib-2.2
+2026-10-24T08:00:42.1002590Z Downloading  happy-2.2
+2026-10-24T08:00:42.3044940Z Downloaded   happy-2.2
+2026-10-24T08:00:42.3045180Z Downloading  indexed-traversable-0.1.5
+2026-10-24T08:00:42.4886290Z Downloaded   indexed-traversable-0.1.5
+2026-10-24T08:00:42.4886640Z Downloading  comonad-5.0.10
+2026-10-24T08:00:42.6035080Z Downloaded   comonad-5.0.10
+2026-10-24T08:00:42.6035570Z Downloading  bifunctors-5.6.3
+2026-10-24T08:00:42.7321890Z Downloaded   bifunctors-5.6.3
+2026-10-24T08:00:42.7322410Z Downloading  integer-logarithms-1.0.5
+2026-10-24T08:00:42.8434310Z Downloaded   integer-logarithms-1.0.5
+2026-10-24T08:00:42.8434570Z Downloading  ech-config-0.0.1
+2026-10-24T08:00:42.9727630Z Downloaded   ech-config-0.0.1
+2026-10-24T08:00:42.9728980Z Downloading  file-embed-0.0.16.0
+2026-10-24T08:00:43.1674590Z Downloaded   file-embed-0.0.16.0
+2026-10-24T08:00:43.1675140Z Downloading  alex-3.5.4.2
+2026-10-24T08:00:43.2896200Z Downloaded   alex-3.5.4.2
+2026-10-24T08:00:43.2896560Z Downloading  unix-compat-0.7.4.1
+2026-10-24T08:00:43.4148750Z Downloaded   unix-compat-0.7.4.1
+2026-10-24T08:00:43.4149390Z Downloading  hsc2hs-0.68.10
+2026-10-24T08:00:43.5438880Z Downloaded   hsc2hs-0.68.10
+2026-10-24T08:00:43.5439300Z Downloading  unix-time-0.5.0
+2026-10-24T08:00:43.7584060Z Downloaded   unix-time-0.5.0
+2026-10-24T08:00:43.7584680Z Downloading  zlib-0.7.1.1
+2026-10-24T08:00:43.9693840Z Downloaded   zlib-0.7.1.1
+2026-10-24T08:00:43.9694170Z Downloading  easy-file-0.2.5
+2026-10-24T08:00:44.1029570Z Downloaded   easy-file-0.2.5
+2026-10-24T08:00:44.1041560Z Downloading  resourcet-1.3.0
+2026-10-24T08:00:44.2267240Z Downloaded   resourcet-1.3.0
+2026-10-24T08:00:44.2315020Z Downloading  temporary-1.3
+2026-10-24T08:00:44.3525390Z Downloaded   temporary-1.3
+2026-10-24T08:00:44.3558920Z Downloading  network-3.2.9.0
+2026-10-24T08:00:44.5663370Z Downloaded   network-3.2.9.0
+2026-10-24T08:00:44.5664720Z Downloading  crypton-socks-0.6.2
+2026-10-24T08:00:44.6842720Z Downloaded   crypton-socks-0.6.2
+2026-10-24T08:00:44.6843750Z Downloading  iproute-1.7.15
+2026-10-24T08:00:44.8024640Z Downloaded   iproute-1.7.15
+2026-10-24T08:00:44.8025410Z Downloading  recv-0.1.2
+2026-10-24T08:00:44.9991050Z Downloaded   recv-0.1.2
+2026-10-24T08:00:44.9991640Z Downloading  simple-sendfile-0.2.32
+2026-10-24T08:00:45.2038300Z Downloaded   simple-sendfile-0.2.32
+2026-10-24T08:00:45.2039000Z Downloading  auto-update-0.2.8
+2026-10-24T08:00:45.3930630Z Downloaded   auto-update-0.2.8
+2026-10-24T08:00:45.3931130Z Downloading  time-manager-0.4.0
+2026-10-24T08:00:45.5829430Z Downloaded   time-manager-0.4.0
+2026-10-24T08:00:45.5829730Z Downloading  transformers-base-0.4.6.1
+2026-10-24T08:00:45.7283970Z Downloaded   transformers-base-0.4.6.1
+2026-10-24T08:00:45.7284370Z Downloading  monad-control-1.0.3.1
+2026-10-24T08:00:45.8481800Z Downloaded   monad-control-1.0.3.1
+2026-10-24T08:00:45.8482550Z Downloading  blaze-builder-0.4.4.1
+2026-10-24T08:00:46.0491510Z Downloaded   blaze-builder-0.4.4.1
+2026-10-24T08:00:46.0491940Z Downloading  blaze-markup-0.8.3.0
+2026-10-24T08:00:46.1546980Z Downloaded   blaze-markup-0.8.3.0
+2026-10-24T08:00:46.1548460Z Downloading  blaze-html-0.9.2.0
+2026-10-24T08:00:46.3485040Z Downloaded   blaze-html-0.9.2.0
+2026-10-24T08:00:46.3485360Z Downloading  cborg-0.2.10.0
+2026-10-24T08:00:46.5492150Z Downloaded   cborg-0.2.10.0
+2026-10-24T08:00:46.5492470Z Downloading  cookie-0.5.1
+2026-10-24T08:00:46.6563320Z Downloaded   cookie-0.5.1
+2026-10-24T08:00:46.6563690Z Downloading  fast-logger-3.2.8
+2026-10-24T08:00:46.8372590Z Downloaded   fast-logger-3.2.8
+2026-10-24T08:00:46.8373030Z Downloading  hashable-1.5.1.0
+2026-10-24T08:00:47.0317980Z Downloaded   hashable-1.5.1.0
+2026-10-24T08:00:47.0318310Z Downloading  constraints-0.14.4
+2026-10-24T08:00:47.1378230Z Downloaded   constraints-0.14.4
+2026-10-24T08:00:47.1378900Z Downloading  case-insensitive-1.2.1.0
+2026-10-24T08:00:47.3271080Z Downloaded   case-insensitive-1.2.1.0
+2026-10-24T08:00:47.3271480Z Downloading  http-media-0.8.1.1
+2026-10-24T08:00:47.5245930Z Downloaded   http-media-0.8.1.1
+2026-10-24T08:00:47.5246770Z Downloading  uuid-types-1.0.6.1
+2026-10-24T08:00:47.6308340Z Downloaded   uuid-types-1.0.6.1
+2026-10-24T08:00:47.6308970Z Downloading  data-fix-0.3.4
+2026-10-24T08:00:47.7362210Z Downloaded   data-fix-0.3.4
+2026-10-24T08:00:47.7362920Z Downloading  unordered-containers-0.2.21
+2026-10-24T08:00:47.8575480Z Downloaded   unordered-containers-0.2.21
+2026-10-24T08:00:47.8575880Z Downloading  uniplate-1.6.13
+2026-10-24T08:00:47.9638020Z Downloaded   uniplate-1.6.13
+2026-10-24T08:00:47.9638390Z Downloading  psqueues-0.2.8.3
+2026-10-24T08:00:48.0751690Z Downloaded   psqueues-0.2.8.3
+2026-10-24T08:00:48.0751970Z Downloading  network-control-0.1.7
+2026-10-24T08:00:48.2666020Z Downloaded   network-control-0.1.7
+2026-10-24T08:00:48.2666530Z Downloading  ordered-containers-0.2.4
+2026-10-24T08:00:48.3721760Z Downloaded   ordered-containers-0.2.4
+2026-10-24T08:00:48.3722420Z Downloading  async-2.2.6
+2026-10-24T08:00:48.4757240Z Downloaded   async-2.2.6
+2026-10-24T08:00:48.4757680Z Downloading  these-1.2.1
+2026-10-24T08:00:48.5944840Z Downloaded   these-1.2.1
+2026-10-24T08:00:48.5945410Z Downloading  time-compat-1.9.9
+2026-10-24T08:00:48.7009710Z Downloaded   time-compat-1.9.9
+2026-10-24T08:00:48.7010120Z Downloading  vault-0.3.2.0
+2026-10-24T08:00:48.8084550Z Downloaded   vault-0.3.2.0
+2026-10-24T08:00:48.8085080Z Downloading  hslua-core-2.3.2.1
+2026-10-24T08:00:48.9243280Z Downloaded   hslua-core-2.3.2.1
+2026-10-24T08:00:48.9243650Z Downloading  hslua-list-1.1.4
+2026-10-24T08:00:49.0294990Z Downloaded   hslua-list-1.1.4
+2026-10-24T08:00:49.0295470Z Downloading  hslua-marshalling-2.3.2
+2026-10-24T08:00:49.1371430Z Downloaded   hslua-marshalling-2.3.2
+2026-10-24T08:00:49.1372770Z Downloading  hslua-classes-2.3.2
+2026-10-24T08:00:49.2578440Z Downloaded   hslua-classes-2.3.2
+2026-10-24T08:00:49.2579020Z Downloading  hslua-typing-0.2.0
+2026-10-24T08:00:49.4333630Z Downloaded   hslua-typing-0.2.0
+2026-10-24T08:00:49.4334410Z Downloading  hslua-objectorientation-2.5.0
+2026-10-24T08:00:49.6166810Z Downloaded   hslua-objectorientation-2.5.0
+2026-10-24T08:00:49.6167210Z Downloading  hslua-packaging-2.4.1
+2026-10-24T08:00:49.7392110Z Downloaded   hslua-packaging-2.4.1
+2026-10-24T08:00:49.7392700Z Downloading  hslua-module-path-1.2.0
+2026-10-24T08:00:49.8432930Z Downloaded   hslua-module-path-1.2.0
+2026-10-24T08:00:49.8433360Z Downloading  hslua-module-system-1.3.0
+2026-10-24T08:00:50.0344430Z Downloaded   hslua-module-system-1.3.0
+2026-10-24T08:00:50.0345920Z Downloading  hslua-module-text-1.2.0
+2026-10-24T08:00:50.2368510Z Downloaded   hslua-module-text-1.2.0
+2026-10-24T08:00:50.2369610Z Downloading  hslua-module-version-1.2.0.1
+2026-10-24T08:00:50.3514340Z Downloaded   hslua-module-version-1.2.0.1
+2026-10-24T08:00:50.3515310Z Downloading  http-types-0.12.6
+2026-10-24T08:00:50.4759870Z Downloaded   http-types-0.12.6
+2026-10-24T08:00:50.4761100Z Downloading  http-semantics-0.4.1
+2026-10-24T08:00:50.6056250Z Downloaded   http-semantics-0.4.1
+2026-10-24T08:00:50.6058370Z Downloading  http2-5.4.9
+2026-10-24T08:00:50.8953340Z Downloaded   http2-5.4.9
+2026-10-24T08:00:50.8954970Z Downloading  emojis-0.1.5
+2026-10-24T08:00:51.0902590Z Downloaded   emojis-0.1.5
+2026-10-24T08:00:51.0912720Z Downloading  doclayout-0.6
+2026-10-24T08:00:51.2173410Z Downloaded   doclayout-0.6
+2026-10-24T08:00:51.2174200Z Downloading  djot-0.1.4.3
+2026-10-24T08:00:51.3372080Z Downloaded   djot-0.1.4.3
+2026-10-24T08:00:51.3372830Z Downloading  mime-types-0.1.2.2
+2026-10-24T08:00:51.5401700Z Downloaded   mime-types-0.1.2.2
+2026-10-24T08:00:51.5403410Z Downloading  mono-traversable-1.0.21.0
+2026-10-24T08:00:51.6718560Z Downloaded   mono-traversable-1.0.21.0
+2026-10-24T08:00:51.6718910Z Downloading  conduit-1.3.6.1
+2026-10-24T08:00:51.8698890Z Downloaded   conduit-1.3.6.1
+2026-10-24T08:00:51.8699260Z Downloading  libyaml-0.1.4
+2026-10-24T08:00:52.0509140Z Downloaded   libyaml-0.1.4
+2026-10-24T08:00:52.0509610Z Downloading  unicode-transforms-0.4.0.1
+2026-10-24T08:00:52.1827090Z Downloaded   unicode-transforms-0.4.0.1
+2026-10-24T08:00:52.1827490Z Downloading  integer-conversion-0.1.1
+2026-10-24T08:00:52.3739900Z Downloaded   integer-conversion-0.1.1
+2026-10-24T08:00:52.3740820Z Downloading  commonmark-0.3.1
+2026-10-24T08:00:52.5751650Z Downloaded   commonmark-0.3.1
+2026-10-24T08:00:52.5753060Z Downloading  haddock-library-1.11.0
+2026-10-24T08:00:52.7898440Z Downloaded   haddock-library-1.11.0
+2026-10-24T08:00:52.7899620Z Downloading  jira-wiki-markup-1.5.1
+2026-10-24T08:00:52.9089880Z Downloaded   jira-wiki-markup-1.5.1
+2026-10-24T08:00:52.9090670Z Downloading  network-uri-2.6.4.2
+2026-10-24T08:00:53.0342940Z Downloaded   network-uri-2.6.4.2
+2026-10-24T08:00:53.0343780Z Downloading  commonmark-extensions-0.2.7.3
+2026-10-24T08:00:53.2539320Z Downloaded   commonmark-extensions-0.2.7.3
+2026-10-24T08:00:53.2540290Z Downloading  prettyprinter-1.7.2
+2026-10-24T08:00:53.4630030Z Downloaded   prettyprinter-1.7.2
+2026-10-24T08:00:53.4630960Z Downloading  prettyprinter-ansi-terminal-1.1.4
+2026-10-24T08:00:53.6607140Z Downloaded   prettyprinter-ansi-terminal-1.1.4
+2026-10-24T08:00:53.6608050Z Downloading  optparse-applicative-0.19.0.0
+2026-10-24T08:00:53.7886230Z Downloaded   optparse-applicative-0.19.0.0
+2026-10-24T08:00:53.7887160Z Downloading  regex-base-0.94.0.3
+2026-10-24T08:00:53.9826990Z Downloaded   regex-base-0.94.0.3
+2026-10-24T08:00:53.9828570Z Downloading  regex-tdfa-1.3.2.7
+2026-10-24T08:00:54.1832120Z Downloaded   regex-tdfa-1.3.2.7
+2026-10-24T08:00:54.1832950Z Downloading  isocline-1.0.9
+2026-10-24T08:00:54.3177550Z Downloaded   isocline-1.0.9
+2026-10-24T08:00:54.3178230Z Downloading  hslua-repl-0.1.2
+2026-10-24T08:00:54.5078420Z Downloaded   hslua-repl-0.1.2
+2026-10-24T08:00:54.5099090Z Downloading  hslua-cli-1.4.4
+2026-10-24T08:00:54.7024480Z Downloaded   hslua-cli-1.4.4
+2026-10-24T08:00:54.7025250Z Downloading  scientific-0.3.10.0
+2026-10-24T08:00:54.8457930Z Downloaded   scientific-0.3.10.0
+2026-10-24T08:00:54.8458540Z Downloading  strict-0.5.1
+2026-10-24T08:00:55.0454280Z Downloaded   strict-0.5.1
+2026-10-24T08:00:55.0454940Z Downloading  serialise-0.2.6.1
+2026-10-24T08:00:55.2454380Z Downloaded   serialise-0.2.6.1
+2026-10-24T08:00:55.2455060Z Downloading  streaming-commons-0.2.3.1
+2026-10-24T08:00:55.4475710Z Downloaded   streaming-commons-0.2.3.1
+2026-10-24T08:00:55.4488460Z Downloading  http-client-0.7.19
+2026-10-24T08:00:55.5980480Z Downloaded   http-client-0.7.19
+2026-10-24T08:00:55.5981220Z Downloading  tagsoup-0.14.8
+2026-10-24T08:00:55.7279790Z Downloaded   tagsoup-0.14.8
+2026-10-24T08:00:55.7327590Z Downloading  th-lift-instances-0.1.20
+2026-10-24T08:00:55.9460410Z Downloaded   th-lift-instances-0.1.20
+2026-10-24T08:00:55.9575440Z Downloading  unicode-collation-0.1.3.7
+2026-10-24T08:00:56.1061850Z Downloaded   unicode-collation-0.1.3.7
+2026-10-24T08:00:56.1062330Z Downloading  text-builder-linear-0.1.4
+2026-10-24T08:00:56.2238870Z Downloaded   text-builder-linear-0.1.4
+2026-10-24T08:00:56.2243700Z Downloading  text-conversions-0.3.1.1
+2026-10-24T08:00:56.3487910Z Downloaded   text-conversions-0.3.1.1
+2026-10-24T08:00:56.3498340Z Downloading  text-iso8601-0.1.1.2
+2026-10-24T08:00:56.5410560Z Downloaded   text-iso8601-0.1.1.2
+2026-10-24T08:00:56.5432930Z Downloading  http-api-data-0.7
+2026-10-24T08:00:56.7241410Z Downloaded   http-api-data-0.7
+2026-10-24T08:00:56.7243670Z Downloading  text-short-0.1.6.1
+2026-10-24T08:00:56.9233800Z Downloaded   text-short-0.1.6.1
+2026-10-24T08:00:56.9239480Z Downloading  base16-2.0
+2026-10-24T08:00:57.0274600Z Downloaded   base16-2.0
+2026-10-24T08:00:57.0275000Z Downloading  crypton-2.0.1
+2026-10-24T08:00:57.1529920Z Downloaded   crypton-2.0.1
+2026-10-24T08:00:57.1530250Z Downloading  hpke-0.2.1
+2026-10-24T08:00:57.2781320Z Downloaded   hpke-0.2.1
+2026-10-24T08:00:57.2781680Z Downloading  mlkem-0.2.3.0
+2026-10-24T08:00:57.4677170Z Downloaded   mlkem-0.2.3.0
+2026-10-24T08:00:57.4678610Z Downloading  crypton-asn1-types-0.4.1
+2026-10-24T08:00:57.6456950Z Downloaded   crypton-asn1-types-0.4.1
+2026-10-24T08:00:57.6457380Z Downloading  crypton-asn1-encoding-0.10.0
+2026-10-24T08:00:57.7617870Z Downloaded   crypton-asn1-encoding-0.10.0
+2026-10-24T08:00:57.7620790Z Downloading  crypton-asn1-parse-0.10.0
+2026-10-24T08:00:57.8712020Z Downloaded   crypton-asn1-parse-0.10.0
+2026-10-24T08:00:57.8712350Z Downloading  base64-2.1
+2026-10-24T08:00:58.0654030Z Downloaded   base64-2.1
+2026-10-24T08:00:58.0654820Z Downloading  crypton-pem-0.3.0
+2026-10-24T08:00:58.1857550Z Downloaded   crypton-pem-0.3.0
+2026-10-24T08:00:58.1858160Z Downloading  crypton-x509-1.9.2
+2026-10-24T08:00:58.3382470Z Downloaded   crypton-x509-1.9.2
+2026-10-24T08:00:58.3382780Z Downloading  crypton-x509-store-1.9.0
+2026-10-24T08:00:58.4464440Z Downloaded   crypton-x509-store-1.9.0
+2026-10-24T08:00:58.4465020Z Downloading  crypton-x509-system-1.9.0
+2026-10-24T08:00:58.6477610Z Downloaded   crypton-x509-system-1.9.0
+2026-10-24T08:00:58.6478300Z Downloading  crypton-x509-validation-1.9.1
+2026-10-24T08:00:58.7538270Z Downloaded   crypton-x509-validation-1.9.1
+2026-10-24T08:00:58.7539110Z Downloading  tls-2.4.6
+2026-10-24T08:00:58.9601870Z Downloaded   tls-2.4.6
+2026-10-24T08:00:58.9602540Z Downloading  crypton-connection-0.4.6
+2026-10-24T08:00:59.1134490Z Downloaded   crypton-connection-0.4.6
+2026-10-24T08:00:59.1134950Z Downloading  http-client-tls-0.4.0
+2026-10-24T08:00:59.3048600Z Downloaded   http-client-tls-0.4.0
+2026-10-24T08:00:59.3049390Z Downloading  typed-process-0.2.13.0
+2026-10-24T08:00:59.5418910Z Downloaded   typed-process-0.2.13.0
+2026-10-24T08:00:59.5419950Z Downloading  typst-symbols-0.3
+2026-10-24T08:00:59.8363720Z Downloaded   typst-symbols-0.3
+2026-10-24T08:00:59.8364730Z Downloading  wai-3.2.5
+2026-10-24T08:01:00.0442880Z Downloaded   wai-3.2.5
+2026-10-24T08:01:00.0445990Z Downloading  wai-logger-2.5.0
+2026-10-24T08:01:00.2360860Z Downloaded   wai-logger-2.5.0
+2026-10-24T08:01:00.2362580Z Downloading  xml-1.3.14
+2026-10-24T08:01:00.3515360Z Downloaded   xml-1.3.14
+2026-10-24T08:01:00.3515910Z Downloading  xml-types-0.3.8
+2026-10-24T08:01:00.4584830Z Downloaded   xml-types-0.3.8
+2026-10-24T08:01:00.4585500Z Downloading  yamlet-1.0.0.1
+2026-10-24T08:01:00.6559090Z Downloaded   yamlet-1.0.0.1
+2026-10-24T08:01:00.6559680Z Downloading  toml-parser-2.0.2.0
+2026-10-24T08:01:00.8581780Z Downloaded   toml-parser-2.0.2.0
+2026-10-24T08:01:00.8582520Z Downloading  attoparsec-0.14.4
+2026-10-24T08:01:00.9830460Z Downloaded   attoparsec-0.14.4
+2026-10-24T08:01:00.9831090Z Downloading  conduit-extra-1.3.8
+2026-10-24T08:01:01.0963660Z Downloaded   conduit-extra-1.3.8
+2026-10-24T08:01:01.0965850Z Downloading  http-date-0.0.11
+2026-10-24T08:01:01.3222580Z Downloaded   http-date-0.0.11
+2026-10-24T08:01:01.3222960Z Downloading  warp-3.4.16
+2026-10-24T08:01:01.5037060Z Downloaded   warp-3.4.16
+2026-10-24T08:01:01.5037470Z Downloading  wai-cors-0.2.7
+2026-10-24T08:01:01.6183750Z Downloaded   wai-cors-0.2.7
+2026-10-24T08:01:01.6184420Z Downloading  zip-archive-0.5
+2026-10-24T08:01:01.8281000Z Downloaded   zip-archive-0.5
+2026-10-24T08:01:01.8285440Z Downloading  hslua-module-zip-1.2.1
+2026-10-24T08:01:01.9476740Z Downloaded   hslua-module-zip-1.2.1
+2026-10-24T08:01:01.9479910Z Downloading  StateVar-1.2.2
+2026-10-24T08:01:02.0760790Z Downloaded   StateVar-1.2.2
+2026-10-24T08:01:02.0802570Z Downloading  contravariant-1.5.6
+2026-10-24T08:01:02.1075410Z Starting     StateVar-1.2.2 (lib)
+2026-10-24T08:01:02.2104890Z Downloaded   contravariant-1.5.6
+2026-10-24T08:01:02.2206720Z Downloading  semigroupoids-6.0.2
+2026-10-24T08:01:02.3220690Z Downloaded   semigroupoids-6.0.2
+2026-10-24T08:01:02.3221350Z Downloading  QuickCheck-2.18.0.0
+2026-10-24T08:01:02.4300060Z Downloaded   QuickCheck-2.18.0.0
+2026-10-24T08:01:02.4300690Z Downloading  text-builder-core-0.1.1.3
+2026-10-24T08:01:02.6289750Z Downloaded   text-builder-core-0.1.1.3
+2026-10-24T08:01:02.6290690Z Downloading  text-builder-1.0.0.5
+2026-10-24T08:01:02.7358410Z Downloaded   text-builder-1.0.0.5
+2026-10-24T08:01:02.7358740Z Downloading  Only-0.1
+2026-10-24T08:01:02.8408260Z Downloaded   Only-0.1
+2026-10-24T08:01:02.8408700Z Downloading  cassava-0.5.4.1
+2026-10-24T08:01:02.8590300Z Starting     Only-0.1 (lib)
+2026-10-24T08:01:03.0440470Z Downloaded   cassava-0.5.4.1
+2026-10-24T08:01:03.0441180Z Downloading  OneTuple-0.4.3
+2026-10-24T08:01:03.2310090Z Downloaded   OneTuple-0.4.3
+2026-10-24T08:01:03.2310890Z Downloading  indexed-traversable-instances-0.1.2.1
+2026-10-24T08:01:03.2535080Z Starting     OneTuple-0.4.3 (lib)
+2026-10-24T08:01:03.3780210Z Downloaded   indexed-traversable-instances-0.1.2.1
+2026-10-24T08:01:03.3782250Z Downloading  semialign-1.4
+2026-10-24T08:01:03.4867560Z Downloaded   semialign-1.4
+2026-10-24T08:01:03.4869010Z Downloading  witherable-0.5
+2026-10-24T08:01:03.6847480Z Downloaded   witherable-0.5
+2026-10-24T08:01:03.6848180Z Downloading  aeson-2.2.5.1
+2026-10-24T08:01:03.8039130Z Downloaded   aeson-2.2.5.1
+2026-10-24T08:01:03.8050520Z Downloading  doctemplates-0.11.1
+2026-10-24T08:01:04.0095360Z Downloaded   doctemplates-0.11.1
+2026-10-24T08:01:04.0098200Z Downloading  hslua-aeson-2.3.2
+2026-10-24T08:01:04.1183280Z Downloaded   hslua-aeson-2.3.2
+2026-10-24T08:01:04.1183970Z Downloading  hslua-2.5.0
+2026-10-24T08:01:04.2325690Z Downloaded   hslua-2.5.0
+2026-10-24T08:01:04.2410160Z Downloading  hslua-module-doclayout-1.2.1.1
+2026-10-24T08:01:04.3664010Z Downloaded   hslua-module-doclayout-1.2.1.1
+2026-10-24T08:01:04.3765720Z Downloading  pandoc-types-1.23.1.2
+2026-10-24T08:01:04.5514170Z Downloaded   pandoc-types-1.23.1.2
+2026-10-24T08:01:04.5527720Z Downloading  commonmark-pandoc-0.3.0.2
+2026-10-24T08:01:04.7485890Z Downloaded   commonmark-pandoc-0.3.0.2
+2026-10-24T08:01:04.7501820Z Downloading  pandoc-lua-marshal-0.3.2.1
+2026-10-24T08:01:04.9554960Z Downloaded   pandoc-lua-marshal-0.3.2.1
+2026-10-24T08:01:04.9560260Z Downloading  ipynb-0.2
+2026-10-24T08:01:05.0893940Z Downloaded   ipynb-0.2
+2026-10-24T08:01:05.0997970Z Downloading  asciidoc-0.1.1.1
+2026-10-24T08:01:05.2840700Z Downloaded   asciidoc-0.1.1.1
+2026-10-24T08:01:05.2842520Z Downloading  aeson-pretty-0.8.11
+2026-10-24T08:01:05.5212030Z Downloaded   aeson-pretty-0.8.11
+2026-10-24T08:01:05.5338330Z Downloading  servant-0.20.3.0
+2026-10-24T08:01:05.7021150Z Downloaded   servant-0.20.3.0
+2026-10-24T08:01:05.7122470Z Downloading  yaml-0.11.11.2
+2026-10-24T08:01:06.2143870Z Downloaded   yaml-0.11.11.2
+2026-10-24T08:01:06.2144610Z Downloading  yamlet-aeson-1.0.0.1
+2026-10-24T08:01:06.6925720Z Downloaded   yamlet-aeson-1.0.0.1
+2026-10-24T08:01:06.7049840Z Downloading  JuicyPixels-3.3.9
+2026-10-24T08:01:06.9600320Z Downloaded   JuicyPixels-3.3.9
+2026-10-24T08:01:06.9715400Z Downloading  HUnit-1.6.2.0
+2026-10-24T08:01:07.0874320Z Building     Only-0.1 (lib)
+2026-10-24T08:01:07.1157940Z Building     OneTuple-0.4.3 (lib)
+2026-10-24T08:01:07.1401220Z Building     StateVar-1.2.2 (lib)
+2026-10-24T08:01:07.2071000Z Downloaded   HUnit-1.6.2.0
+2026-10-24T08:01:07.2195250Z Downloading  wai-extra-3.1.18
+2026-10-24T08:01:07.4471110Z Downloaded   wai-extra-3.1.18
+2026-10-24T08:01:07.4507590Z Downloading  wai-app-static-3.2.1
+2026-10-24T08:01:07.5962670Z Downloaded   wai-app-static-3.2.1
+2026-10-24T08:01:07.6066520Z Downloading  servant-server-0.20.3.0
+2026-10-24T08:01:07.8283040Z Downloaded   servant-server-0.20.3.0
+2026-10-24T08:01:07.8386700Z Downloading  Glob-0.10.2
+2026-10-24T08:01:08.0772770Z Downloaded   Glob-0.10.2
+2026-10-24T08:01:08.0783660Z Downloading  cabal-doctest-1.0.13
+2026-10-24T08:01:08.3735120Z Downloaded   cabal-doctest-1.0.13
+2026-10-24T08:01:08.3872080Z Downloading  xml-conduit-1.10.1.0
+2026-10-24T08:01:08.5613050Z Downloaded   xml-conduit-1.10.1.0
+2026-10-24T08:01:08.5615540Z Downloading  skylighting-core-0.15
+2026-10-24T08:01:08.7959000Z Downloaded   skylighting-core-0.15
+2026-10-24T08:01:08.7959560Z Downloading  skylighting-format-blaze-html-0.1.2.2
+2026-10-24T08:01:08.9008910Z Downloaded   skylighting-format-blaze-html-0.1.2.2
+2026-10-24T08:01:08.9019590Z Downloading  skylighting-format-context-0.1.0.2
+2026-10-24T08:01:09.1126780Z Downloaded   skylighting-format-context-0.1.0.2
+2026-10-24T08:01:09.1287270Z Downloading  skylighting-format-latex-0.1
+2026-10-24T08:01:09.3819810Z Downloaded   skylighting-format-latex-0.1
+2026-10-24T08:01:09.3820800Z Downloading  skylighting-format-ansi-0.1
+2026-10-24T08:01:09.6090260Z Downloaded   skylighting-format-ansi-0.1
+2026-10-24T08:01:09.6090930Z Downloading  skylighting-format-typst-0.1
+2026-10-24T08:01:09.8183300Z Downloaded   skylighting-format-typst-0.1
+2026-10-24T08:01:09.8184050Z Downloading  skylighting-0.15
+2026-10-24T08:01:10.0772500Z Downloaded   skylighting-0.15
+2026-10-24T08:01:10.0935520Z Downloading  typst-0.12
+2026-10-24T08:01:10.4090740Z Downloaded   typst-0.12
+2026-10-24T08:01:10.9395250Z Starting     blaze-builder-0.4.4.1 (lib)
+2026-10-24T08:01:12.9654080Z Building     blaze-builder-0.4.4.1 (lib)
+2026-10-24T08:01:16.5661180Z 
+2026-10-24T08:01:16.5663560Z Failed to build OneTuple-0.4.3.
+2026-10-24T08:01:16.5667290Z Build log (
+2026-10-24T08:01:16.5667970Z /Users/runner/.cache/cabal/logs/ghc-9.10.3/OnTpl-0.4.3-d291e624.log ):
+2026-10-24T08:01:16.5669510Z Configuring library for OneTuple-0.4.3...
+2026-10-24T08:01:16.5669890Z Preprocessing library for OneTuple-0.4.3...
+2026-10-24T08:01:16.5670180Z Building library for OneTuple-0.4.3...
+2026-10-24T08:01:16.5670780Z [1 of 3] Compiling Data.Tuple.Solo  ( src/Data/Tuple/Solo.hs, dist/build/Data/Tuple/Solo.o, dist/build/Data/Tuple/Solo.dyn_o )
+2026-10-24T08:01:16.5671720Z [2 of 3] Compiling Data.Tuple.OneTuple ( src/Data/Tuple/OneTuple.hs, dist/build/Data/Tuple/OneTuple.o, dist/build/Data/Tuple/OneTuple.dyn_o )
+2026-10-24T08:01:16.5672850Z [3 of 3] Compiling Data.Tuple.Solo.TH ( src/Data/Tuple/Solo/TH.hs, dist/build/Data/Tuple/Solo/TH.o, dist/build/Data/Tuple/Solo/TH.dyn_o )
+2026-10-24T08:01:16.5673460Z ld: multiple errors: tapi error: malformed file
+2026-10-24T08:01:16.5673920Z /Library/Developer/CommandLineTools/SDKs/MacOSX27.0.sdk/usr/lib/libiconv.2.tbd:4:20: error:
+2026-10-24T08:01:16.5674400Z      error: unknown architecture
+2026-10-24T08:01:16.5674690Z                        arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5675040Z                        ^~~~~~~~~~~~~~~
+2026-10-24T08:01:16.5675560Z      in '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib/libiconv.tbd'; tapi error: malformed file
+2026-10-24T08:01:16.5676020Z   |
+2026-10-24T08:01:16.5676310Z 4 |                    arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5676610Z   |                    ^
+2026-10-24T08:01:16.5676790Z 
+2026-10-24T08:01:16.5677070Z /Library/Developer/CommandLineTools/SDKs/MacOSX27.0.sdk/usr/lib/libSystem.B.tbd:4:20: error:
+2026-10-24T08:01:16.5677550Z      error: unknown architecture
+2026-10-24T08:01:16.5677860Z                        arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5678250Z                        ^~~~~~~~~~~~~~~
+2026-10-24T08:01:16.5678640Z      in '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib/libSystem.tbd'
+2026-10-24T08:01:16.5679130Z   |
+2026-10-24T08:01:16.5679440Z 4 |                    arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5679720Z   |                    ^
+2026-10-24T08:01:16.5679890Z 
+2026-10-24T08:01:16.5680140Z clang: error: linker command failed with exit code 1 (use -v to see invocation)
+2026-10-24T08:01:16.5680600Z `gcc' failed in phase `Linker'. (Exit code: 1)
+2026-10-24T08:01:16.5680820Z 
+2026-10-24T08:01:16.5680890Z Failed to build Only-0.1.
+2026-10-24T08:01:16.5681290Z Build log ( /Users/runner/.cache/cabal/logs/ghc-9.10.3/Only-0.1-ff2db921.log
+2026-10-24T08:01:16.5682640Z ):
+2026-10-24T08:01:16.5683730Z Error: [Cabal-7125]
+2026-10-24T08:01:16.5683970Z Configuring library for Only-0.1...
+2026-10-24T08:01:16.5688350Z Failed to build OneTuple-0.4.3 (which is required by pandoc-server-0.1.4.1 and pandoc-lua-engine-0.5.4.1). See the build log above for details.
+2026-10-24T08:01:16.5689040Z Preprocessing library for Only-0.1...
+2026-10-24T08:01:16.5689750Z Failed to build Only-0.1 (which is required by pandoc-server-0.1.4.1 and pandoc-lua-engine-0.5.4.1). See the build log above for details.
+2026-10-24T08:01:16.5691200Z Failed to build StateVar-1.2.2 (which is required by pandoc-server-0.1.4.1 and pandoc-lua-engine-0.5.4.1). See the build log above for details.
+2026-10-24T08:01:16.5692530Z Failed to build blaze-builder-0.4.4.1 (which is required by pandoc-server-0.1.4.1 and pandoc-lua-engine-0.5.4.1). See the build log above for details.
+2026-10-24T08:01:16.5693100Z 
+2026-10-24T08:01:16.5693300Z Building library for Only-0.1...
+2026-10-24T08:01:16.5693880Z [1 of 1] Compiling Data.Tuple.Only  ( src/Data/Tuple/Only.hs, dist/build/Data/Tuple/Only.o, dist/build/Data/Tuple/Only.dyn_o )
+2026-10-24T08:01:16.5694490Z ld: multiple errors: tapi error: malformed file
+2026-10-24T08:01:16.5694940Z /Library/Developer/CommandLineTools/SDKs/MacOSX27.0.sdk/usr/lib/libiconv.2.tbd:4:20: error:
+2026-10-24T08:01:16.5695430Z      error: unknown architecture
+2026-10-24T08:01:16.5695770Z                        arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5696060Z                        ^~~~~~~~~~~~~~~
+2026-10-24T08:01:16.5696560Z      in '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib/libiconv.tbd'; tapi error: malformed file
+2026-10-24T08:01:16.5696990Z   |
+2026-10-24T08:01:16.5697270Z 4 |                    arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5697600Z   |                    ^
+2026-10-24T08:01:16.5697700Z 
+2026-10-24T08:01:16.5697970Z /Library/Developer/CommandLineTools/SDKs/MacOSX27.0.sdk/usr/lib/libSystem.B.tbd:4:20: error:
+2026-10-24T08:01:16.5698440Z      error: unknown architecture
+2026-10-24T08:01:16.5698720Z                        arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5699040Z                        ^~~~~~~~~~~~~~~
+2026-10-24T08:01:16.5699460Z      in '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib/libSystem.tbd'
+2026-10-24T08:01:16.5699850Z   |
+2026-10-24T08:01:16.5700140Z 4 |                    arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5700440Z   |                    ^
+2026-10-24T08:01:16.5700610Z 
+2026-10-24T08:01:16.5700860Z clang: error: linker command failed with exit code 1 (use -v to see invocation)
+2026-10-24T08:01:16.5701300Z `gcc' failed in phase `Linker'. (Exit code: 1)
+2026-10-24T08:01:16.5701460Z 
+2026-10-24T08:01:16.5701590Z Failed to build StateVar-1.2.2.
+2026-10-24T08:01:16.5701860Z Build log (
+2026-10-24T08:01:16.5702160Z /Users/runner/.cache/cabal/logs/ghc-9.10.3/SttVr-1.2.2-6b3ab2f4.log ):
+2026-10-24T08:01:16.5702640Z Configuring library for StateVar-1.2.2...
+2026-10-24T08:01:16.5703050Z Preprocessing library for StateVar-1.2.2...
+2026-10-24T08:01:16.5703330Z Building library for StateVar-1.2.2...
+2026-10-24T08:01:16.5703840Z [1 of 1] Compiling Data.StateVar    ( src/Data/StateVar.hs, dist/build/Data/StateVar.o, dist/build/Data/StateVar.dyn_o )
+2026-10-24T08:01:16.5705050Z src/Data/StateVar.hs:220:33: warning: [GHC-58520] [-Wtype-equality-requires-operators]
+2026-10-24T08:01:16.5706960Z     The use of ‘~’ without TypeOperators
+2026-10-24T08:01:16.5707320Z     will become an error in a future GHC release.
+2026-10-24T08:01:16.5707760Z     Suggested fix: Perhaps you intended to use TypeOperators
+2026-10-24T08:01:16.5708260Z     |
+2026-10-24T08:01:16.5714080Z 220 |   default ($~) :: (MonadIO m, a ~ b, HasGetter t a) => t -> (a -> b) -> m ()
+2026-10-24T08:01:16.5714530Z     |                                 ^
+2026-10-24T08:01:16.5714720Z 
+2026-10-24T08:01:16.5714960Z src/Data/StateVar.hs:226:34: warning: [GHC-58520] [-Wtype-equality-requires-operators]
+2026-10-24T08:01:16.5715630Z     The use of ‘~’ without TypeOperators
+2026-10-24T08:01:16.5715960Z     will become an error in a future GHC release.
+2026-10-24T08:01:16.5716290Z     Suggested fix: Perhaps you intended to use TypeOperators
+2026-10-24T08:01:16.5716650Z     |
+2026-10-24T08:01:16.5716960Z 226 |   default ($~!) :: (MonadIO m, a ~ b, HasGetter t a) => t -> (a -> b) -> m ()
+2026-10-24T08:01:16.5717360Z     |                                  ^
+2026-10-24T08:01:16.5717540Z 
+2026-10-24T08:01:16.5717970Z src/Data/StateVar.hs:230:32: warning: [GHC-58520] [-Wtype-equality-requires-operators]
+2026-10-24T08:01:16.5718400Z     The use of ‘~’ without TypeOperators
+2026-10-24T08:01:16.5718760Z     will become an error in a future GHC release.
+2026-10-24T08:01:16.5719100Z     Suggested fix: Perhaps you intended to use TypeOperators
+2026-10-24T08:01:16.5719440Z     |
+2026-10-24T08:01:16.5719850Z 230 | defaultUpdate :: (MonadIO m, a ~ b, HasGetter t a, HasSetter t a) => t -> (a -> b) -> m ()
+2026-10-24T08:01:16.5720240Z     |                                ^
+2026-10-24T08:01:16.5720430Z 
+2026-10-24T08:01:16.5720670Z src/Data/StateVar.hs:235:38: warning: [GHC-58520] [-Wtype-equality-requires-operators]
+2026-10-24T08:01:16.5721110Z     The use of ‘~’ without TypeOperators
+2026-10-24T08:01:16.5721460Z     will become an error in a future GHC release.
+2026-10-24T08:01:16.5721850Z     Suggested fix: Perhaps you intended to use TypeOperators
+2026-10-24T08:01:16.5722140Z     |
+2026-10-24T08:01:16.5722590Z 235 | defaultUpdateStrict :: (MonadIO m, a ~ b, HasGetter t a, HasSetter t a) => t -> (a -> b) -> m ()
+2026-10-24T08:01:16.5723030Z     |                                      ^
+2026-10-24T08:01:16.5723230Z 
+2026-10-24T08:01:16.5723380Z ld: multiple errors: tapi error: malformed file
+2026-10-24T08:01:16.5723880Z /Library/Developer/CommandLineTools/SDKs/MacOSX27.0.sdk/usr/lib/libiconv.2.tbd:4:20: error:
+2026-10-24T08:01:16.5724280Z      error: unknown architecture
+2026-10-24T08:01:16.5724620Z                        arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5724950Z                        ^~~~~~~~~~~~~~~
+2026-10-24T08:01:16.5725440Z      in '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib/libiconv.tbd'; tapi error: malformed file
+2026-10-24T08:01:16.5725930Z   |
+2026-10-24T08:01:16.5726160Z 4 |                    arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5726580Z   |                    ^
+2026-10-24T08:01:16.5726750Z 
+2026-10-24T08:01:16.5726960Z /Library/Developer/CommandLineTools/SDKs/MacOSX27.0.sdk/usr/lib/libSystem.B.tbd:4:20: error:
+2026-10-24T08:01:16.5727440Z      error: unknown architecture
+2026-10-24T08:01:16.5727790Z                        arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5728180Z                        ^~~~~~~~~~~~~~~
+2026-10-24T08:01:16.5728550Z      in '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib/libSystem.tbd'
+2026-10-24T08:01:16.5728970Z   |
+2026-10-24T08:01:16.5729180Z 4 |                    arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5729510Z   |                    ^
+2026-10-24T08:01:16.5729720Z 
+2026-10-24T08:01:16.5729950Z clang: error: linker command failed with exit code 1 (use -v to see invocation)
+2026-10-24T08:01:16.5730430Z `gcc' failed in phase `Linker'. (Exit code: 1)
+2026-10-24T08:01:16.5730640Z 
+2026-10-24T08:01:16.5730760Z Failed to build blaze-builder-0.4.4.1.
+2026-10-24T08:01:16.5731060Z Build log (
+2026-10-24T08:01:16.5731380Z /Users/runner/.cache/cabal/logs/ghc-9.10.3/blz-bldr-0.4.4.1-72bbbbfa.log ):
+2026-10-24T08:01:16.5731820Z Configuring library for blaze-builder-0.4.4.1...
+2026-10-24T08:01:16.5732150Z Preprocessing library for blaze-builder-0.4.4.1...
+2026-10-24T08:01:16.5732570Z Building library for blaze-builder-0.4.4.1...
+2026-10-24T08:01:16.5733550Z [ 1 of 11] Compiling Blaze.ByteString.Builder.Internal.Write ( Blaze/ByteString/Builder/Internal/Write.hs, dist/build/Blaze/ByteString/Builder/Internal/Write.o, dist/build/Blaze/ByteString/Builder/Internal/Write.dyn_o )
+2026-10-24T08:01:16.5735030Z [ 2 of 11] Compiling Blaze.ByteString.Builder.Compat.Write ( Blaze/ByteString/Builder/Compat/Write.hs, dist/build/Blaze/ByteString/Builder/Compat/Write.o, dist/build/Blaze/ByteString/Builder/Compat/Write.dyn_o )
+2026-10-24T08:01:16.5736210Z [ 3 of 11] Compiling Blaze.ByteString.Builder.Int ( Blaze/ByteString/Builder/Int.hs, dist/build/Blaze/ByteString/Builder/Int.o, dist/build/Blaze/ByteString/Builder/Int.dyn_o )
+2026-10-24T08:01:16.5737600Z [ 4 of 11] Compiling Blaze.ByteString.Builder.Html.Word ( Blaze/ByteString/Builder/Html/Word.hs, dist/build/Blaze/ByteString/Builder/Html/Word.o, dist/build/Blaze/ByteString/Builder/Html/Word.dyn_o )
+2026-10-24T08:01:16.5738960Z [ 5 of 11] Compiling Blaze.ByteString.Builder.Char8 ( Blaze/ByteString/Builder/Char8.hs, dist/build/Blaze/ByteString/Builder/Char8.o, dist/build/Blaze/ByteString/Builder/Char8.dyn_o )
+2026-10-24T08:01:16.5740330Z [ 6 of 11] Compiling Blaze.ByteString.Builder.Char.Utf8 ( Blaze/ByteString/Builder/Char/Utf8.hs, dist/build/Blaze/ByteString/Builder/Char/Utf8.o, dist/build/Blaze/ByteString/Builder/Char/Utf8.dyn_o )
+2026-10-24T08:01:16.5741650Z [ 7 of 11] Compiling Blaze.ByteString.Builder.Html.Utf8 ( Blaze/ByteString/Builder/Html/Utf8.hs, dist/build/Blaze/ByteString/Builder/Html/Utf8.o, dist/build/Blaze/ByteString/Builder/Html/Utf8.dyn_o )
+2026-10-24T08:01:16.5743190Z [ 8 of 11] Compiling Blaze.ByteString.Builder.ByteString ( Blaze/ByteString/Builder/ByteString.hs, dist/build/Blaze/ByteString/Builder/ByteString.o, dist/build/Blaze/ByteString/Builder/ByteString.dyn_o )
+2026-10-24T08:01:16.5744770Z [ 9 of 11] Compiling Blaze.ByteString.Builder.HTTP ( Blaze/ByteString/Builder/HTTP.hs, dist/build/Blaze/ByteString/Builder/HTTP.o, dist/build/Blaze/ByteString/Builder/HTTP.dyn_o )
+2026-10-24T08:01:16.5745890Z [10 of 11] Compiling Blaze.ByteString.Builder.Word ( Blaze/ByteString/Builder/Word.hs, dist/build/Blaze/ByteString/Builder/Word.o, dist/build/Blaze/ByteString/Builder/Word.dyn_o )
+2026-10-24T08:01:16.5747100Z [11 of 11] Compiling Blaze.ByteString.Builder ( Blaze/ByteString/Builder.hs, dist/build/Blaze/ByteString/Builder.o, dist/build/Blaze/ByteString/Builder.dyn_o )
+2026-10-24T08:01:16.5747830Z ld: multiple errors: tapi error: malformed file
+2026-10-24T08:01:16.5774270Z /Library/Developer/CommandLineTools/SDKs/MacOSX27.0.sdk/usr/lib/libiconv.2.tbd:4:20: error:
+2026-10-24T08:01:16.5774950Z      error: unknown architecture
+2026-10-24T08:01:16.5775390Z                        arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5775760Z                        ^~~~~~~~~~~~~~~
+2026-10-24T08:01:16.5776330Z      in '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib/libiconv.tbd'; tapi error: malformed file
+2026-10-24T08:01:16.5776770Z   |
+2026-10-24T08:01:16.5777040Z 4 |                    arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5777500Z   |                    ^
+2026-10-24T08:01:16.5777690Z 
+2026-10-24T08:01:16.5777910Z /Library/Developer/CommandLineTools/SDKs/MacOSX27.0.sdk/usr/lib/libSystem.B.tbd:4:20: error:
+2026-10-24T08:01:16.5778400Z      error: unknown architecture
+2026-10-24T08:01:16.5778720Z                        arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5779040Z                        ^~~~~~~~~~~~~~~
+2026-10-24T08:01:16.5779450Z      in '/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib/libSystem.tbd'
+2026-10-24T08:01:16.5779950Z   |
+2026-10-24T08:01:16.5780220Z 4 |                    arm64e.x1-macos, arm64e.x1-maccatalyst ]
+2026-10-24T08:01:16.5780680Z   |                    ^
+2026-10-24T08:01:16.5780830Z 
+2026-10-24T08:01:16.5781070Z clang: error: linker command failed with exit code 1 (use -v to see invocation)
+2026-10-24T08:01:16.5781460Z `gcc' failed in phase `Linker'. (Exit code: 1)
+2026-10-24T08:01:16.6208760Z ##[error]Process completed with exit code 1.
+2026-10-24T08:01:16.6467940Z Post job cleanup.
+2026-10-24T08:01:18.6180730Z [command]/opt/homebrew/bin/git version
+2026-10-24T08:01:18.7930330Z git version 2.56.0
+2026-10-24T08:01:18.8060300Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/0b3a43a2-e5ea-4108-8519-b7d148632d54/.gitconfig'
+2026-10-24T08:01:18.8062440Z Temporarily overriding HOME='/Users/runner/work/_temp/0b3a43a2-e5ea-4108-8519-b7d148632d54' before making global git config changes
+2026-10-24T08:01:18.8063250Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-24T08:01:18.8064140Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/pandoc/pandoc
+2026-10-24T08:01:18.8786450Z Removing SSH command configuration
+2026-10-24T08:01:18.8862040Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-24T08:01:18.9058630Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-24T08:01:19.5666040Z Removing HTTP extra header
+2026-10-24T08:01:19.5723390Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-24T08:01:19.5816050Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-24T08:01:19.7275860Z Removing includeIf entries pointing to credentials config files
+2026-10-24T08:01:19.7384220Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-24T08:01:19.7405060Z includeif.gitdir:/Users/runner/work/pandoc/pandoc/.git.path
+2026-10-24T08:01:19.7419820Z includeif.gitdir:/Users/runner/work/pandoc/pandoc/.git/worktrees/*.path
+2026-10-24T08:01:19.7429550Z includeif.gitdir:/github/workspace/.git.path
+2026-10-24T08:01:19.7438920Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-24T08:01:19.7499180Z [command]/opt/homebrew/bin/git config --local --get-all includeif.gitdir:/Users/runner/work/pandoc/pandoc/.git.path
+2026-10-24T08:01:19.7512590Z /Users/runner/work/_temp/git-credentials-a41c2c99-79ff-4099-9131-0031ef0bad12.config
+2026-10-24T08:01:19.7563350Z [command]/opt/homebrew/bin/git config --local --unset includeif.gitdir:/Users/runner/work/pandoc/pandoc/.git.path \/Users\/runner\/work\/_temp\/git\-credentials\-a41c2c99\-79ff\-4099\-9131\-0031ef0bad12\.config
+2026-10-24T08:01:19.7582350Z [command]/opt/homebrew/bin/git config --local --get-all includeif.gitdir:/Users/runner/work/pandoc/pandoc/.git/worktrees/*.path
+2026-10-24T08:01:19.7583220Z /Users/runner/work/_temp/git-credentials-a41c2c99-79ff-4099-9131-0031ef0bad12.config
+2026-10-24T08:01:19.7601740Z [command]/opt/homebrew/bin/git config --local --unset includeif.gitdir:/Users/runner/work/pandoc/pandoc/.git/worktrees/*.path \/Users\/runner\/work\/_temp\/git\-credentials\-a41c2c99\-79ff\-4099\-9131\-0031ef0bad12\.config
+2026-10-24T08:01:19.7661040Z [command]/opt/homebrew/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-24T08:01:19.7723900Z /github/runner_temp/git-credentials-a41c2c99-79ff-4099-9131-0031ef0bad12.config
+2026-10-24T08:01:19.7729830Z [command]/opt/homebrew/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-a41c2c99\-79ff\-4099\-9131\-0031ef0bad12\.config
+2026-10-24T08:01:19.7801220Z [command]/opt/homebrew/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-24T08:01:19.7865030Z /github/runner_temp/git-credentials-a41c2c99-79ff-4099-9131-0031ef0bad12.config
+2026-10-24T08:01:19.7867550Z [command]/opt/homebrew/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-a41c2c99\-79ff\-4099\-9131\-0031ef0bad12\.config
+2026-10-24T08:01:19.7944160Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-24T08:01:19.8819000Z Removing credentials config '/Users/runner/work/_temp/git-credentials-a41c2c99-79ff-4099-9131-0031ef0bad12.config'
+2026-10-24T08:01:19.8965370Z Cleaning up orphan processes

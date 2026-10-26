@@ -1,0 +1,18 @@
+2026-10-24T07:54:47.1917650Z Current runner version: '2.338.0'
+2026-10-24T07:54:47.1917650Z ##[group]Operating System
+2026-10-24T07:54:47.1917650Z   macOS 14.7.1 23H222
+2026-10-24T07:54:47.1917650Z ##[endgroup]
+2026-10-24T07:54:47.2011220Z ##[group]Runner Image
+2026-10-24T07:54:47.2011220Z   Image: macos-14-arm64
+2026-10-24T07:54:47.2011220Z   Version: 20261021.1
+2026-10-24T07:54:47.2011220Z ##[endgroup]
+2026-10-24T07:54:47.5000000Z ##[group]Run actions/checkout@v4
+2026-10-24T07:54:47.5000000Z with:
+2026-10-24T07:54:47.5000000Z   repository: someorg/somerepo
+2026-10-24T07:54:48.1200000Z Syncing repository: someorg/somerepo
+2026-10-24T07:54:48.9000000Z ::warning::Node.js 16 actions are deprecated. Please update the following actions to use Node.js 20: actions/checkout@v4. For more information see: https://github.blog/changelog/2024-03-07-github-actions-all-actions-will-run-on-node-20-instead-of-node-16/.
+2026-10-24T07:54:49.1000000Z Disabling automatic garbage collection
+2026-10-24T07:54:49.8000000Z Checking out the ref
+2026-10-24T07:54:50.2000000Z Cleaning up repository and fetching submodules
+2026-10-24T07:54:51.0000000Z ##[endgroup]
+2026-10-24T07:54:51.5000000Z ✓ Set up job completed in 4.3s

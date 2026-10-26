@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<!-- 降级 fixture: data-log-url 指向 404 端点 (匿名登录墙 / 日志被保留策略删除形态)
+     → 源级错误 (github 404 hint: sign in)。 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>not-found log endpoint</title>
+<style>
+  body { font: 13px/1.6 -apple-system, sans-serif; margin: 40px; }
+  check-step { display: block; border: 1px solid #d1d9e0; border-radius: 8px; padding: 10px 14px; }
+</style>
+</head>
+<body>
+  <h1>job 44</h1>
+  <div class="js-check-steps">
+    <check-step data-name="Build and test" data-number="1" data-conclusion="failure"
+                data-log-url="/_status/404/fixtures/github/logs/step1.log.txt">
+      <details class="Details-element CheckStep details-reset js-checks-log-details" id="check-step-1" data-step-number="1" open>
+        <summary class="CheckStep-header js-check-step-summary">Build and test</summary>
+        <div class="js-checks-log-display"><div class="js-checks-log-display-container"></div></div>
+      </details>
+    </check-step>
+  </div>
+</body>
+</html>

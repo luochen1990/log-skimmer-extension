@@ -1,0 +1,835 @@
+{
+ "manifest": {
+  "min_engine_version": "0.1.0",
+  "format_version": 2,
+  "rule_count": 165,
+  "generated_at": "2026-10-26"
+ },
+ "rules": [
+  {
+   "id": "bazel-error",
+   "path": "bazel/bazel-error.yaml",
+   "yaml": "# samples: protocolbuffers/protobuf/39550723836-119059086397\n# bazel 经典错误头: 行首 `ERROR: ` 前缀的两类高特异形态 —\n# ① `ERROR: <path>:<row>:<col>: <msg>` (规则/目标求值失败, 如 repository fetch 失败的 Traceback 头);\n# ② `ERROR: no such (package|target|rule|label)` (external 仓库解析失败)。\n# 锚刻意收紧到这两形态而非裸 `ERROR: ` — pip 的 `ERROR: pip's dependency resolver ...`\n# 依赖冲突警告在成功 job 常见 (fmtlib 39574123266 实测), 裸前缀会误吸。\n# ext loop: 3 空格/tab 缩进续行 (Starlark `   Traceback` / `\\tFile \"...\", line N` / `\\t\\tdownload_info = ...`),\n# `Error in download: ...` 无缩进根因行不被吞 (ERROR 锚行自身即签名, 根因行紧邻下一个块或闭块边界)。\nid: bazel-error\ntitle: 'bazel 错误头 (ERROR: path:row:col / ERROR: no such ...) + Starlark Traceback 缩进树'\ntool: bazel\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(ERROR: \\S+:[0-9]+:[0-9]+: |ERROR: no such (package|target|rule|label)[ :])'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(   |\\t)\\S'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "bun-error-json",
+   "path": "bun/bun-error-json.yaml",
+   "yaml": "# samples: sst/opencode/38846691774-116798718085, sst/opencode/38848100941-116803067381, sst/opencode/38849670466-116807867187\n# opencode triage agent 崩溃: 红色加粗 `Error: {` 锚 (ANSI 容忍, 行尾 { 限定) +\n# 2+ 缩进 JSON 键值行与收尾 } (loop)。JSON 结构锚定, 空行/其他内容闭块。\nid: bun-error-json\ntitle: 'bun 进程 JSON 形态未捕获错误 (Error: { ... })'\ntool: bun\ncategory: unknown\nconfidence: medium\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*Error: (?:\\x1b\\[[0-9;]*m)*\\{$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\s{2,}\\S|\\})'\n    loop: true\nkind: signal\n"
+  },
+  {
+   "id": "bun-script-exit-fail",
+   "path": "bun/bun-script-exit-fail.yaml",
+   "yaml": "# samples: sst/opencode/38847484611-116801198128\n# bun run 脚本非零退出报错 (`error: script \"<name>\" exited with code N`)。\n# 单行块; 真正的失败原因 (lint/test 输出) 由其他规则就近提取, A5 输出层合并。\nid: bun-script-exit-fail\ntitle: 'bun run 脚本退出失败 (error: script ... exited with code N)'\ntool: bun\ncategory: unknown\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?error: script \"[^\"]+\" exited with code [0-9]+$'\nkind: signal\n"
+  },
+  {
+   "id": "bun-test-fail",
+   "path": "bun/bun-test-fail.yaml",
+   "yaml": "# samples: sst/opencode/38846192625-116797151353\n# bun test 失败用例标记行 (`(fail) <name> [duration]`, 与 `(pass)` 对偶)。\n# 单行块 + context.after=3 带出空行/所属测试文件/失败消息首行 (仅扩输出);\n# 紧随其后的 `N pass / N fail / Ran N tests` 汇总区与 bun-script-exit-fail 锚自然衔接 (A5 合并)。\nid: bun-test-fail\ntitle: bun test 失败用例行 ((fail) name [duration])\ntool: bun\ncategory: test\nconfidence: high\ncontext: {before: 0, after: 3}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\(fail\\) '\nkind: signal\n"
+  },
+  {
+   "id": "busted-htest-error-entry",
+   "path": "busted-htest/busted-htest-error-entry.yaml",
+   "yaml": "# samples: luarocks/luarocks/37374715884-111980292552 (WindowsTest 2.1 luajit)\n# 锚: busted-htest 输出器错误清单条目 `  ERROR <path>.lua:NNN: <test 名>` — 源码 L61\n# `colors.magenta('  ERROR') .. ' %s\\n'` + L105-112 getFileLine (同 failed-test-entry\n# 的定位段, 仅关键字不同: ERROR 是 busted error 事件, FAILED 是断言失败)。\n# 2 空格前导是源码字面量; 非 Windows+ANSICON 环境带 ANSI 包裹, 锚容错 ESC。\n# 原名 luaunit-error-entry 属误归属 (同族审计见 busted-htest-failed-test-entry 头注);\n# 锚同步收紧 ` @ ` 行列后置分支 (neovim harness 形态, 归 nvim-test 族 — 语料零样本,\n# 后续 FN 响应兜), `:` 分支域内命中不变。\nid: busted-htest-error-entry\ntitle: 'busted-htest 错误条目 (  ERROR path.lua:NNN: <test 名>)'\ntool: busted-htest\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)* {1,3}ERROR {1,2}(?:\\x1b\\[[0-9;]*m)* ?(?:\\x1b\\[[0-9;]*m)*\\S*\\.lua(?:\\x1b\\[[0-9;]*m)*:(?:\\x1b\\[[0-9;]*m)*[0-9]+(?:\\x1b\\[[0-9;]*m)*: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "busted-htest-failed-test-entry",
+   "path": "busted-htest/busted-htest-failed-test-entry.yaml",
+   "yaml": "# samples: luarocks/luarocks/37336450627-111865251576, luarocks/luarocks/37349875638-111897728961, luarocks/luarocks/37367391547-111955736438, luarocks/luarocks/37374715884-111980292552 (WindowsTest 2.1 luajit)\n# 锚: busted-htest 输出器 (busted 的 htest outputter, src/busted/outputHandlers/htest.lua)\n# 失败清单条目 ` FAILED <path>.lua:NNN: <test 名>` — 源码 L55 `colors.red(' FAILED') .. ' %s\\n'`\n# + L105-112 getFileLine `<cyan path>:<cyan line>: `。`.lua` 路径 + `:NNN` 直连定位段是\n# 结构签名; 非 Windows+ANSICON 环境条目带 ANSI 包裹 (colors.red/cyan), 故锚容错 ESC。\n# 原名 luaunit-failed-test-entry 属误归属: 真 luaunit 全源码无 `listed below` 措辞\n# (摘要为 `Ran N tests in X seconds, N successes...`), 语料亦零真 luaunit 样本;\n# 2026-10-22 审计重归属 busted-htest, 并收紧锚 (退役 ` @ N:` 行列后置分支 —\n# 那是 neovim 自研 harness 形态, 由 nvim-test/nvim-test-failure-list-entry 接管)。\nid: busted-htest-failed-test-entry\ntitle: 'busted-htest 失败条目 ( FAILED path.lua:NNN: <test 名>)'\ntool: busted-htest\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)* ?FAILED {1,2}(?:\\x1b\\[[0-9;]*m)* ?(?:\\x1b\\[[0-9;]*m)*\\S*\\.lua(?:\\x1b\\[[0-9;]*m)*:(?:\\x1b\\[[0-9;]*m)*[0-9]+(?:\\x1b\\[[0-9;]*m)*: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "busted-htest-failure-banner",
+   "path": "busted-htest/busted-htest-failure-banner.yaml",
+   "yaml": "# samples: luarocks/luarocks/37336450627-111865251576, luarocks/luarocks/37349875638-111897728961, luarocks/luarocks/37367391547-111955736438, luarocks/luarocks/37374715884-111980292552 (WindowsTest 2.1 luajit)\n# 锚: busted-htest 输出器失败/错误清单横幅 ` FAILED N test(s), listed below:` /\n# `  ERROR N errors(s), listed below:` — 源码 L54/L60 (summaryStrings[].header,\n# 纯文本字面量, 无 colors 包裹)。措辞 `listed below` 是清单头签名。\n# context.after=4 带头几条定位条目。\n# 原名 luaunit-failure-banner 属误归属 (同族审计见 busted-htest-failed-test-entry 头注);\n# 锚原样迁移 (语料仅 busted-htest 宿主命中 — neovim harness 的 banner 计数被 ANSI\n# 包裹本就不中此锚, 收敛域不变)。\nid: busted-htest-failure-banner\ntitle: 'busted-htest 失败清单横幅 ( FAILED N test(s), listed below:)'\ntool: busted-htest\ncategory: test\nconfidence: high\ncontext: {before: 0, after: 4}\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)* ?FAILED {1,2}(?:\\x1b\\[[0-9;]*m)* ?[0-9]+ tests?, listed below:|^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)* {1,3}ERROR {1,2}(?:\\x1b\\[[0-9;]*m)* ?[0-9]+ errors?, listed below:'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "cabal-structured-error",
+   "path": "cabal/cabal-structured-error.yaml",
+   "yaml": "# samples: haskell/cabal/39521726012-118968266826, haskell/cabal/39348168469-118387142016, haskell/haskell-language-server/39476330432-118813201488, haskell/haskell-language-server/39191160143-117864106802, haskell/cabal/39144143826-117724435998 (+9 同形态样本)\n# 锚: cabal-install 结构化错误头 `Error: [Cabal-<code>]` — `[Cabal-N]` 码段是 cabal 独有签名,\n# 与 stack 的 `[S-N]` 词法面不相交。实测码: 7107 (依赖解析失败, 首细节 `Could not resolve\n# dependencies:` + `[__N] trying/rejecting/skipping:` 回跳链) / 7125 (构建失败, 首细节 `Failed to\n# (`Could not resolve dependencies:` 等 col-0 行)。扩展 = `[^\\s0-9#]` 首字符约束: 非-TS 回溯路径\n# 不可能吃进时间戳行 (行首恒为数字), TS-only 空白行闭块; `#` 排除平台注解/分组行 (`##[error]`)\n# 被吞入错误块。跨空白的续段 (7107 回跳链内分段) 不追 — 锚行码段+首段已携带根因; 以数字开头的\n# 细节行 (罕见) 同样闭块。category: 多因混合 (7107=deps / 7125=build), 按打标纪律宁缺勿错 → unknown。\nid: cabal-structured-error\ntitle: 'cabal 结构化错误头 (Error: [Cabal-xxxx] + 细节链)'\ntool: cabal\ncategory: unknown\nintent: failure\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Error: \\[Cabal-[0-9]+\\]'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\s*[^\\s0-9#]'\n    loop: true\nkind: signal\nattribution:\n  contributor: lc (agent-drafted, opencode/GLM)\n  generated-by: { harness: opencode, model: glm-5.3 }\n  adapter-version: p3-wave1\n"
+  },
+  {
+   "id": "cargo-could-not-compile",
+   "path": "cargo/cargo-could-not-compile.yaml",
+   "yaml": "# samples: niri-wm/niri/37721016710-113128410430, niri-wm/niri/35428871875-105859640064, niri-wm/niri/35428989485-105859974298, niri-wm/niri/35550165700-106183274542, niri-wm/niri/37720469238-113126703223\n# cargo 编译失败汇总行 (error: could not compile `<crate>` ... due to N previous errors)。\n# 单行块; 汇总行之后通常紧跟日志结束/空行, 无可靠结构扩展。\nid: cargo-could-not-compile\ntitle: cargo 编译失败汇总行 (could not compile ... due to N previous errors)\ntool: cargo\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*error(?:\\x1b\\[[0-9;]*m)*:(?:\\x1b\\[[0-9;]*m)* could not compile '\nkind: signal\n"
+  },
+  {
+   "id": "cargo-msrv-unsupported",
+   "path": "cargo/cargo-msrv-unsupported.yaml",
+   "yaml": "# samples: niri-wm/niri/38707882543-116331716854, niri-wm/niri/38707898710-116331769525\n# cargo MSRV 解析失败: 锚行指明 rustc 版本不被支持, 后跟 2 空格缩进的\n# `pkg@ver requires rustc X` 依赖清单行 (loop), 直至出现 col-0 的处置建议行闭块。\nid: cargo-msrv-unsupported\ntitle: cargo MSRV 不满足 (rustc X is not supported by the following package)\ntool: cargo\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*error(?:\\x1b\\[[0-9;]*m)*:(?:\\x1b\\[[0-9;]*m)* rustc [0-9.]+ is not supported by the following package:'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\s{2}\\S'\n    loop: true\nkind: signal\n"
+  },
+  {
+   "id": "cargo-progress-noise",
+   "path": "cargo/cargo-progress-noise.yaml",
+   "yaml": "# samples: niri-wm/niri/38707552842-116330622870 (正向锚), django/django/39535409436-119010803789, gradle/gradle/39541783022-119030943685, tailwindlabs/tailwindcss/39281027929-118155018623 (负向锚: 后三者命中过旧锚的跨栈行, 新锚须不命中)\n# cargo 依赖下载/编译进度行 — 高频噪音。P3 Wave0 收窄 (跨栈过匹配修复):\n# 旧锚 `(Compiling|Downloaded|Downloading|Updating|Unpacking|Fresh)` + 任意缩进容忍, 在首刷\n# 110 仓语料上命中 107 仓 — 吞掉非 cargo 生态的同词头行: pip `Downloading *.whl`、apt\n# `Unpacking <pkg> (...)`、git checkout `Updating files: N%`、freebsd pkg `Downloading [N]`/\n# `Updating FreeBSD repository...`、docker `Status: Downloaded ...`、甚至 Django 测试用例名\n# `Updating a field of a model subclass ... ok` (信号行被噪规则吞 = FN 风险)。\n# 新锚 = cargo 输出的两个结构不变量 (语料全量枚举证实, 见 PR 描述):\n#   1. 动词右对齐 12 列 (indent+动词长度恒 12): `   Compiling` / `  Downloaded` /\n#      ` Downloading` / `    Updating` / `      Fresh`; 其他包管理器同词头行均不满足\n#      (pip 0/2 缩进, uv 1 缩进 `Downloaded`, git/freebsd 0 缩进);\n#   2. 动词后接 cargo 专属尾缀: `<crate> v<semver>` (Compiling/Downloaded/Fresh)、\n#      `crates.io`/`git repository ` (Updating)、`crates` (Downloading)。\n# ANSI 容忍保留实测形态: 色码在缩进前 (`\\x1b[1m\\x1b[92m   Compiling\\x1b[0m crate vN`),\n# 故 ANSI 组在 indent+动词单元两侧。`Unpacking` 移除 — cargo 不产此行 (apt 专属)。\nid: cargo-progress-noise\ntitle: cargo 进度噪音行 (Compiling/Downloaded/Downloading/Updating/Fresh, 12 列对齐 + cargo 尾缀锚定)\ntool: cargo\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*(?:(   Compiling|  Downloaded|      Fresh)(?:\\x1b\\[[0-9;]*m)* \\S+ v[0-9]|    Updating(?:\\x1b\\[[0-9;]*m)* (crates\\.io|git repository )| Downloading(?:\\x1b\\[[0-9;]*m)* crates)'\nkind: noise\nattribution:\n  contributor: lc (agent-drafted, opencode/GLM)\n  generated-by: { harness: opencode, model: glm-5.3 }\n  adapter-version: p3-wave0\n"
+  },
+  {
+   "id": "cargo-version-conflict",
+   "path": "cargo/cargo-version-conflict.yaml",
+   "yaml": "# samples: niri-wm/niri/35428593659-105858871105, niri-wm/niri/35428349302-105858190910\n# cargo 版本/feature 解析冲突树: 锚 `error: failed to select a version for`, 扩展为\n# 4 空格缩进的依赖链行 + 特定 col-0 叙述行 (versions that meet/... depends on/help:/\n# failed to select) + 空行 (树内分段), 其余内容闭块。\nid: cargo-version-conflict\ntitle: cargo 版本/feature 解析冲突树 (failed to select a version for)\ntool: cargo\ncategory: deps\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*error(?:\\x1b\\[[0-9;]*m)*:(?:\\x1b\\[[0-9;]*m)* failed to select a version for '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\s{4,}\\S.*|versions that meet .*|package .* depends on .*|help: .*|failed to select a version .*)?$'\n    loop: true\nkind: signal\n"
+  },
+  {
+   "id": "checkstyle-error",
+   "path": "checkstyle/checkstyle-error.yaml",
+   "yaml": "# samples: spring-projects/spring-boot/39147946714-117735522265\n# 锚: checkstyle 经 gradle ant logger 输出的违例行 `[ant:checkstyle] [ERROR] path.java:LINE: msg [RuleId]` —\n#   前缀 `[ant:checkstyle]` 是工具特异锚 (与 maven 的裸 `[ERROR]` 海隔离, 零误撞面);\n# 单行块 — 同一失败 job 内违例行密集相邻由 A5 自然合并, `> Task ...:checkstyleMain FAILED` 坐标由 gradle-task-failed 提供。\n# 仅 1 个语料 job 覆盖 (spring-boot header 检查), confidence 降为 medium; 非 ant 宿主的裸 checkstyle 形态语料未采样, 不写。\nid: checkstyle-error\ntitle: 'checkstyle 违例行 ([ant:checkstyle] [ERROR] path.java:NN)'\ntool: checkstyle\ncategory: lint\nconfidence: medium\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\[ant:checkstyle\\] \\[ERROR\\] \\S+\\.java:[0-9]+: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "clang-format-lint-diff",
+   "path": "clang-format/clang-format-lint-diff.yaml",
+   "yaml": "# samples: google/benchmark/37714285616-113781433420, google/benchmark/37918829126-113781670082, google/benchmark/39244525244-118046179465\n# 锚: DoozyX/clang-format-lint-action 的漂移报告头 `--- <path>\\t(original)` — (original)/(reformatted)\n# label 是该 action 专属形态 (clang-format --output-replacements-xml 之外的 diff 输出), 普通 git\n# diff 的 `--- a/file` 无 label 不冲突。FN 诊断 §1: JS action 退出即败不产注解, diff 即唯一证据。\n# 扩展 (有序): `+++ <path> (reformatted)` → `@@` hunk → diff 体 (ANSI 色码容忍, 行首 [-+ ] 或 @@;\n# 体行含 hunk 自身, 多 hunk/多文件连续吸收)。与 telescope stylua 的 `Diff in <file>:` 形态锚不同,\n# 按特异锚分立 (族级抽象的取舍: 分)。\nid: clang-format-lint-diff\ntitle: 'clang-format 漂移 diff 块 (--- path (original) / +++ (reformatted) + ANSI diff 体)'\ntool: clang-format\ncategory: fmt\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\x1b\\[[0-9;]*m)*--- \\S.*\\(original\\)[ \\t]*$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\x1b\\[[0-9;]*m)*\\+\\+\\+ \\S.*\\(reformatted\\)[ \\t]*$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\x1b\\[[0-9;]*m)*@@ -[0-9]+(,[0-9]+)? \\+[0-9]+(,[0-9]+)? @@'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\x1b\\[[0-9;]*m)*([-+ ]|@@)'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "cmake-build-progress-noise",
+   "path": "cmake/cmake-build-progress-noise.yaml",
+   "yaml": "# samples: google/benchmark/37601516037-112726844566, duckdb/duckdb/39424738661-118642875298\n# cmake 生成构建系 (make/ninja generator) 的编译进度行 `[ N%] Building|Built|Linking|Generating|...`\n# — 全语料 5133 行高频噪音; 动词白名单限定 (pytest 的 `[ 5%]` 进度无这些动词, cargo Compiling\n# 无百分比前缀, 均不相交)。单行 noise 块。\nid: cmake-build-progress-noise\ntitle: 'cmake 编译进度噪音行 ([ N%] Building/Linking/...)'\ntool: cmake\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\[ *[0-9]+%\\] (Building|Built|Linking|Generating|Performing|Compiling|Finished|Automatic) '\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "cmake-configure-error",
+   "path": "cmake/cmake-configure-error.yaml",
+   "yaml": "# samples: bitcoin/bitcoin/39419195723-118615614767, neovim/neovim/39498802072-118891310509, swiftlang/swift/39502997228-118904871567\n# 锚: cmake configure 期错误头 `CMake Error at <file>:<line> (<command>):` — 语料全形态皆带\n# `at ... (cmd):` 后缀 (message / cmake_minimum_required 等); Windows 路径 (D:/a/...) 与 Unix\n# 路径均在。扩展: 缩进续行 / 空行 / `-- ` 状态行 (`-- Configuring incomplete, errors occurred!`\n# 会插在消息中间, 故入扩展) / `Call Stack (most recent call first):` 栈头 (col-0) — 任一 col-0\n# 非状态行 (如 `+ cd ...` shell 回显) 即闭块, 防吞后续 CMakeConfigureLog 转储。\nid: cmake-configure-error\ntitle: 'cmake 配置错误块 (CMake Error at f:l (cmd): + 缩进续文/Call Stack 扩展)'\ntool: cmake\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?CMake Error at [^:]+:[0-9]+ \\([^)]+\\): ?$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(-- .*|\\s+\\S.*|Call Stack \\(most recent call first\\):| *)$'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "cocoon-wait-for-tests-failed",
+   "path": "cocoon/cocoon-wait-for-tests-failed.yaml",
+   "yaml": "# samples: flutter/flutter/39485579393-118846643094, flutter/flutter/39501333794-118899294729, flutter/flutter/39485579754-118844995048\n# flutter/cocoon wait_for_tests.dart 守卫失败: 等待的上游 engine test 失败/取消后, 守卫脚本以\n# `Error: One or more tests have failed, or the overall guard status is failed.` 终止 (flutter/flutter\n# Tree_analyze / Mac_arm64_verify_binaries job 的唯一失败标记, 8/8 样本同形态)。\n# `Failure: Action completed with errors.` 是同脚本的伴随行 (顺序不定), 由 context 带出而非单独锚。\n# 短语特异 (全语料仅此工具产出), 成功语料 0 命中。\nid: cocoon-wait-for-tests-failed\ntitle: 'cocoon wait_for_tests 守卫失败 (Error: One or more tests have failed...)'\ntool: cocoon\ncategory: test\nconfidence: high\ncontext: {before: 4, after: 1}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(Error: One or more tests have failed, or the overall guard status is failed\\.|Failure: Action completed with errors\\.)'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "codeowners-validator-checks-failed",
+   "path": "codeowners-validator/codeowners-validator-checks-failed.yaml",
+   "yaml": "# samples: github.com/gradle/gradle/2026-10-21/39642919313-119370855708-code-owners-validation-failure\n#   (22:20Z 快照轮换新入, FN=1 红: 该样本无 ##[error] 注解 — validator docker action 经退出码\n#   失败, 平台注解兜底缺位, 本规则补工具签名层)\n# 锚: mszostok/codeowners-validator 汇总行 `N check(s) executed, M failure(s)`, M≥1 才匹配 —\n#   成功侧同构行恒为 `0 failure(s)` (validator 自身输出, 字符级不相交, FP 免疫)。context\n#   before=5 回收 `[err] Found N not owned files:` 细节与文件清单 (真正的问题证据; 汇总行只\n#   是判决, 细节行词法弱不独立作锚)。`Check OK`/`==> Executing ... Checker` 横幅成功失败皆有,\n#   不作锚。\nid: codeowners-validator-checks-failed\ntitle: 'codeowners-validator 校验失败 (N check(s) executed, M failure(s), M≥1 + [err] 细节)'\ntool: codeowners-validator\ncategory: lint\nintent: failure\nconfidence: medium\ncontext: {before: 5, after: 0}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?[0-9]+ check\\(s\\) executed, [1-9][0-9]* failure\\(s\\)'\nkind: signal\nattribution:\n  contributor: lc (agent-drafted, opencode/GLM)\n  generated-by: { harness: opencode, model: glm-5.3 }\n  adapter-version: p3-wave1\n"
+  },
+  {
+   "id": "copilot-cli-error",
+   "path": "copilot/copilot-cli-error.yaml",
+   "yaml": "# samples: dotnet/aspnetcore/39533856089-119005795713, dotnet/aspnetcore/39359567952-118422282994, dotnet/aspnetcore/39190826141-117863011425, dotnet/aspnetcore/39090464097-117565909125, dotnet/aspnetcore/38995301047-117286412387 (+1: 38841036075)\n# 锚: GitHub Copilot CLI 探活错误 (col-0 `Error: ` 头)。实测两形态: `Error: Model \"<model>\" does\n# not support <capability> configuration` (模型不支持请求的推理配置) 与 `Error: No authentication\n# information found.` (PAT 失效)。归因依据: 样本中该行由 `timeout 30 copilot --prompt ...` 探活\n# 步骤产出, 是 PAT 校验失败 (annotation `N PAT(s) invalid`) 的根因证据。行本身无工具标记, 归因靠\n# 上下文 → confidence medium; category: AI-CLI 配置拒绝, 枚举无适配值 → unknown。\nid: copilot-cli-error\ntitle: 'Copilot CLI 探活错误 (Error: Model ... does not support / No authentication information found)'\ntool: copilot\ncategory: unknown\nintent: failure\nconfidence: medium\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Error: (Model \"[^\"]+\" does not support |No authentication information found)'\nkind: signal\nattribution:\n  contributor: lc (agent-drafted, opencode/GLM)\n  generated-by: { harness: opencode, model: glm-5.3 }\n  adapter-version: p3-wave1\n"
+  },
+  {
+   "id": "csc-diagnostic-error",
+   "path": "csc/csc-diagnostic-error.yaml",
+   "yaml": "# samples: AvaloniaUI/Avalonia/39556053491-119075960272 (16 处: ##[error] 注解回显 / MSBuild ERR 彩行 / DBG 缩进行三种宿主包装, 12 带尾 ANSI reset / 4 净尾)\n# 锚: Roslyn (csc) 诊断行签名 `<file>(<line>,<col>): error <CODE>: <msg> [proj.csproj]` — MSBuild\n# 编排管线独有。不写 `^` 锚定 (spec §2 锚定惯例): 实测证据恒嵌行中 —— `##[error]/path.cs(442,13):\n# error xUnit1051: ...` (annotation 回显)、`06:39:58 [ ERR ] /path.cs(442,13): ...` (dotnet build\n# 彩色控制台)、缩进汇总列表三种植入形态。码段 `[A-Za-z]{2,}` 要求 ≥2 字母: 覆盖 CS (编译器) 与\n# 分析器码族 (xUnit/CA/IDE...), 同时与 msvc 的单字母 C 码 (`error C2678:`) 词法面解耦。**尾部\n# `\\[\\S*proj\\]` 工程标签是解耦关键**: tsc 经典输出同形 (`a.ts(2,10): error TS2724:`, 见\n# vuejs/prettier 样本) 但无工程标签, 由既有 tsc-diagnostic 认领, 双归属即假归因; MSBuild 恒带\n# `[projrelpath]` 尾 (16/16 实测), 尾容忍 ANSI reset (`\\x1b[0m`)。\nid: csc-diagnostic-error\ntitle: 'Roslyn 编译器/分析器诊断行 (file(l,c): error CODE: ... [proj.csproj])'\ntool: csc\ncategory: typecheck\nintent: failure\nconfidence: high\npatterns:\n  - regex: '\\([0-9]+,[0-9]+\\): error [A-Za-z]{2,}[0-9]+: .*\\[[^\\]]*proj\\](\\x1b\\[0m)?$'\nkind: signal\nattribution:\n  contributor: lc (agent-drafted, opencode/GLM)\n  generated-by: { harness: opencode, model: glm-5.3 }\n  adapter-version: p3-wave1\n"
+  },
+  {
+   "id": "ctest-test-failed",
+   "path": "ctest/ctest-test-failed.yaml",
+   "yaml": "# samples: libuv/libuv/38442904105-115453779115, libuv/libuv/38443756634-115456682602, libuv/libuv/38444316409-115458603007\n# 锚: ctest 逐用例失败行 `[N/M] Test #X: <name> ....***Failed <sec>` — `***` 三星前缀是 ctest\n# 失败/超时标志位, 与通过形态 (`.... Passed`/`***Passed`) 相互排斥; 测试名含 \"Failed\" 字样的\n# 通过用例 (Catch2 `FailureReporting::FailedAssertion ... Passed`) 不会误命中 — 已实测排雷。\n# Timeout/Not Run 状态语料未现但同族恒形, 收窄为 `(Failed|Timeout|Not Run)` 三值 (宁覆盖勿漏)。\nid: ctest-test-failed\ntitle: 'ctest 逐用例失败行 (Test #X: name ...***Failed/Timeout/Not Run)'\ntool: ctest\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?([0-9]+/[0-9]+ )?Test #[0-9]+: .*\\*\\*\\*(Failed|Timeout|Not Run)'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "ctest-tests-failed-list",
+   "path": "ctest/ctest-tests-failed-list.yaml",
+   "yaml": "# samples: libuv/libuv/38442904105-115453779115, libuv/libuv/38443756634-115456682602, libuv/libuv/38444316409-115458603007\n# 锚: ctest 失败汇总头 `The following tests FAILED:` — ctest 运行尾部的失败清单块头, 极特异。\n# 扩展 (有序): 失败用例行 `\\tN - <test> (Failed|Timeout|...)` (loop) → `Errors while running\n# CTest` → `Output from these tests are in:` / `Use \"--rerun-failed...` 收尾行; 顺序透传 (A3)\n# 逐段消费。与 ctest-test-failed (逐用例行) 双锚互补: 汇总头兜住日志截断在用例列表之前的场景。\nid: ctest-tests-failed-list\ntitle: 'ctest 失败汇总块 (The following tests FAILED: + 清单/Errors/Output 尾)'\ntool: ctest\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?The following tests FAILED: ?$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?[\\t ]*[0-9]+ - .+ \\(.*\\)$'\n    loop: true\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Errors while running CTest ?$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(Output from these tests are in: .+|Use \"--rerun-failed .+)$'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "curl-runtests-testfail",
+   "path": "curl-runtests/curl-runtests-testfail.yaml",
+   "yaml": "# samples: curl/curl/39536530689-119014354607, curl/curl/39539987532-119025289293\n# 锚: curl runtests.pl 测试框架的失败汇总行 `TESTFAIL: These test cases failed: <ids>` —\n# 框架专属大写签名 (与 TESTDONE 汇总行成对, TESTDONE 100% OK 形态出现在 success 侧不锚);\n# 单行即完整证据 (哪些用例号失败)。autotools 家族 (configure: error / config.status: error)\n# 语料零实例, 按样本驱动纪律不写。\nid: curl-runtests-testfail\ntitle: 'curl runtests 失败汇总 (TESTFAIL: These test cases failed)'\ntool: curl-runtests\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?TESTFAIL: These test cases failed: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "dependabot-update-errors",
+   "path": "dependabot/dependabot-update-errors.yaml",
+   "yaml": "# samples: denoland/deno/39501107597-118898532638, denoland/deno/39473983149-118805061327\n# dependabot updater 命令行输出: `Dependabot encountered 'N' error(s) during execution, ...`\n# 后随 ASCII 框线 Errors 表 (`+--` / `| Type | Details |`, 含失败类型如 security_update_not_possible),\n# 容器层再报 `Failure running container <hash>: Error: Command failed with exit code 1: ...dependabot-updater`。\n# ext 链: 框线行 loop 贪心 → 单个空行透传 → Failure running 容器行收尾 (有界三段)。\n# `##[error]Dependabot encountered an error performing the update` 注解另由平台规则覆盖。\nid: dependabot-update-errors\ntitle: 'dependabot 更新失败 (error(s) during execution + Errors 框线表 + Failure running container)'\ntool: dependabot\ncategory: deps\nconfidence: high\npatterns:\n  - regex: \"^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Dependabot encountered '[0-9]+' error\\\\(s\\\\) during execution\"\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?[\\+|]'\n    loop: true\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Failure running container \\S+: Error: Command failed'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "emmylua-diagnostic",
+   "path": "emmylua/emmylua-diagnostic.yaml",
+   "yaml": "# samples: neovim/neovim/39573131391-119131989562\n# emmylua (EmmyLuaLs/emmylua-analyzer-rust, `emmylua_check`) 诊断行:\n# `(warning|error): <msg>  [rule-code]` — rust-analyzer 式前缀 + 行尾 `[kebab-code]`\n# 双结构锚定 (rustc/clippy 的 `warning:` 行无行尾 code 后缀, 天然正交); 扩展透传\n# `  --> path:line:col` 定位行。context.before=1 带出紧邻的 `--- <file> [N warnings]`\n# 文件头。neovim lint 门禁 `--warnings-as-errors` 下 warning 即失败 → intent=failure。\nid: emmylua-diagnostic\ntitle: 'emmylua 诊断行 (warning/error: msg  [code] + --> 定位)'\ntool: emmylua\ncategory: lint\nconfidence: high\ncontext: {before: 1, after: 1}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(warning|error): .+  \\[[a-z][a-z0-9_-]*\\]$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?  --> \\S+:[0-9]+:[0-9]+$'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "escript-exception",
+   "path": "escript/escript-exception.yaml",
+   "yaml": "# samples: erlang/otp/39464433334-118775193287 (Create SBOM)\n# 锚: escript 崩溃头 `escript: exception <type>: <reason>` — escript 运行器把\n# 未捕获异常打到 stdout 的固定前缀; 随后的 `in call from` 调用栈 (MFA 链) 由\n# context.after=3 带前几帧。\nid: escript-exception\ntitle: 'escript 崩溃 (escript: exception ...)'\ntool: escript\ncategory: unknown\nconfidence: medium\ncontext: {before: 0, after: 3}\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?escript: exception '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "eslint-offense-line",
+   "path": "eslint/eslint-offense-line.yaml",
+   "yaml": "# samples: sst/opencode/38847484611-116801198128\n# eslint 改动文件检查输出 (bun run lint:changed): `<path>:<line>:<col>  <rule>  <message>`\n# 双空格分隔的紧凑单行形态; 路径需带 JS/TS 扩展名 + 行:列, 双端结构锚定。\n# 相邻违规行由输出层 A5 合并为一块。注: 样本为 opencode 自定义 formatter, 无 severity 字段。\nid: eslint-offense-line\ntitle: eslint 违规行 (path:line:col  rule  message 紧凑格式)\ntool: eslint\ncategory: lint\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\S+\\.(ts|tsx|js|jsx|mjs|cjs|mts|cts):[0-9]+:[0-9]+  \\S+  \\S'\nkind: signal\n"
+  },
+  {
+   "id": "eslint-stylish-offense",
+   "path": "eslint/eslint-stylish-offense.yaml",
+   "yaml": "# samples: DavidAnson/markdownlint/38597448203-115967705656, DavidAnson/markdownlint/38674542795-116225024696\n# eslint 默认 stylish formatter 的违规行 `  <line>:<col>  error  <msg>  <rule-id>` —\n# 双空格分隔 + 行:列定位 + severity 词是结构签名; 锚只认 error severity (warning 不开块,\n# 成功样本中 warning-only 运行天然零 FP)。容忍 npm-runall 的 `[label] ` 步骤前缀与\n# 宿主时间戳。context.before=1 带上紧邻的文件路径行; 相邻违规行 (loop) 合并为一块。\n# 与 eslint-offense-line (bun 紧凑单行 formatter) 正交。\nid: eslint-stylish-offense\ntitle: 'eslint stylish 违规行 (line:col  error  msg  rule)'\ntool: eslint\ncategory: lint\nconfidence: high\ncontext: {before: 1, after: 0}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\[[^\\]]+\\] )* *[0-9]+:[0-9]+  error  \\S'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\[[^\\]]+\\] )* *[0-9]+:[0-9]+  (error|warning)  \\S'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "eslint-stylish-summary",
+   "path": "eslint/eslint-stylish-summary.yaml",
+   "yaml": "# samples: DavidAnson/markdownlint/38597448203-115967705656, DavidAnson/markdownlint/38674542795-116225024696\n# eslint stylish 汇总尾行 `✖ N problems (M errors, K warnings)` — `✖` + problems 括号计数\n# 是 eslint CLI 固定签名; 要求 errors 计数 ≥1 (首位非零): warning-only 的通过运行打印\n# `✖ 5 problems (0 errors, 5 warnings)` 不开块, 零 FP。扩展透传紧随的\n# `N errors and K warnings potentially fixable` 行。容忍 ANSI 色码 / [label] 前缀 / 时间戳。\nid: eslint-stylish-summary\ntitle: 'eslint stylish 汇总尾行 (✖ N problems (M errors, K warnings))'\ntool: eslint\ncategory: lint\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\[[^\\]]+\\] )*(?:\\x1b\\[[0-9;]*m)*✖ [0-9]+ problems? \\([1-9][0-9]* errors?, [0-9]+ warnings?\\)'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\[[^\\]]+\\] )* *[0-9]+ errors? and [0-9]+ warnings? potentially fixable'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "exunit-failed-summary",
+   "path": "exunit/exunit-failed-summary.yaml",
+   "yaml": "# samples: phoenixframework/phoenix/39403059582-118562250107 (mix test), elixir-lang/elixir/39293570407-118200187810, phoenixframework/phoenix/37462096766-112263932974 (installer test)\n# 锚: mix test 运行收尾 `Failed: N test(s)` — 仅失败非零时打印 (elixir-lang\n# 形态带红色 ANSI 包裹, 锚分段容忍); context.before=2 带 `Result: N/M passed`\n# 统计行。与 ruby dots 汇总等跨栈形态正交 (措辞签名)。\nid: exunit-failed-summary\ntitle: 'mix test 失败汇总 (Failed: N test)'\ntool: exunit\ncategory: test\nconfidence: high\ncontext: {before: 2, after: 0}\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*Failed: [0-9]+ tests?(?:\\x1b\\[[0-9;]*m)*\\r?$'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "exunit-failure-entry",
+   "path": "exunit/exunit-failure-entry.yaml",
+   "yaml": "# samples: phoenixframework/phoenix/39403059582-118562250107 (mix test), elixir-lang/elixir/39293570407-118200187810 (Ubuntu OTP29), phoenixframework/phoenix/37630434030-112822959282\n# 锚: ExUnit 失败条目头 `  N) test <描述>` — 字面 `test ` 关键字是与 rspec\n# (`  N) <name>` 任意标题) 及 minitest (`  N) Failure:` 关键字) 的宿主语境限定\n# (PR #11 教训)。扩展: 5+ 空格缩进块贪心 (Assertion/code/left/right/stacktrace,\n# ANSI 色码包行的 ESC 非空白自匹配), 空行闭块 — 条目间 \"The following output\n# was logged\" 的空行间隔自然截断。\nid: exunit-failure-entry\ntitle: 'ExUnit 失败条目 (  N) test <描述> + 断言细节)'\ntool: exunit\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)* {2}[0-9]+\\) test \\S'\n  - regex: '^ {5,}\\S'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "fastlane-exit-status",
+   "path": "fastlane/fastlane-exit-status.yaml",
+   "yaml": "# samples: fastlane/fastlane/39131167114-117687563053 (ubuntu 24.04 Xcode Ruby 3.2)\n# 锚: fastlane sh action 失败行 `[!] Exit status of command '<cmd>' was N instead of 0.`\n# — fastlane 签名标记 `[!]` + 结构化措辞; 单行块, 相邻的 ruby dots/rspec 输出\n# 由各自规则覆盖。\nid: fastlane-exit-status\ntitle: 'fastlane 命令退出码失败 ([!] Exit status of command ...)'\ntool: fastlane\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*\\[!\\] Exit status of command ''.+'' was [0-9]+ instead of 0'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "fastlane-finished-with-errors",
+   "path": "fastlane/fastlane-finished-with-errors.yaml",
+   "yaml": "# samples: fastlane/fastlane/39131167114-117687563053 (ubuntu 24.04 Xcode Ruby 3.2)\n# 锚: fastlane lane 执行收尾 `[HH:MM:SS]: fastlane finished with errors` —\n# fastlane 时间戳前缀 `[HH:MM:SS]: ` + 措辞是双签名 (红色 ANSI 包裹, 锚容忍)。\n# 与成功收尾 `fastlane finished successfully` 正交。\nid: fastlane-finished-with-errors\ntitle: 'fastlane 收尾失败 ([HH:MM:SS]: fastlane finished with errors)'\ntool: fastlane\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*\\[[0-9]{2}:[0-9]{2}:[0-9]{2}\\]: (?:\\x1b\\[[0-9;]*m)*fastlane finished with errors'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "flutter-bots-command-failed",
+   "path": "flutter-bots/flutter-bots-command-failed.yaml",
+   "yaml": "# samples: flutter/flutter/39477011894-118815472602\n# flutter dev/bots 框架 (dev/bots/*.dart, ━━ 分隔线 + ▌hh:mm:ss▐ 前缀版式) 的命令失败汇总:\n# `Command exited with exit code N but expected zero exit code.` — bots runner 对子命令非零退出的\n# 标准报错 (该样本为 Tree_analyze job 的 format.dart/analyze.dart 失败, 同因重复 4 次, 均有界)。\n# 伴随行 (`Command: <cmd>` / `Working directory:` / ━━ 分隔线 / `You may find the errors by\n# searching for \"╡ERROR #\"`) 由 context 带出。文案特异, 成功语料 0 命中。\nid: flutter-bots-command-failed\ntitle: 'flutter bots 命令失败 (Command exited with exit code N but expected zero exit code.)'\ntool: flutter-bots\ncategory: build\nconfidence: high\ncontext: {before: 2, after: 3}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Command exited with exit code [0-9]+ but expected zero exit code\\.'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "forgejo-actions-job-failed",
+   "path": "forgejo-actions/forgejo-actions-job-failed.yaml",
+   "yaml": "# samples: private corpus (not redistributed)\n# Forgejo runner 编排层失败安全网 (与 github-actions-error-annotation 同构):\n# 尾部 RUN exit status / signal: terminated / Job 'x' failed 三形态, 全部失败 run 必现其一。\nid: forgejo-actions-job-failed\ntitle: Forgejo runner 失败尾部信号 (安全网)\ntool: forgejo-actions\ncategory: infra\nconfidence: high\npatterns:\n  - regex: '(⚙️ \\[runner\\]: RUN (exit status \\d+|signal: \\w+)|🏁  Job failed|Job ''.+'' failed|context canceled)'\nkind: signal\n"
+  },
+  {
+   "id": "forgejo-actions-poll-noise",
+   "path": "forgejo-actions/forgejo-actions-poll-noise.yaml",
+   "yaml": "# samples: private corpus (not redistributed)\n# CI 轮询回显噪音: 进度占位/静默提示/槽位等待重试 — 海量且零信息量。\nid: forgejo-actions-poll-noise\ntitle: Forgejo CI 轮询回显噪音\ntool: forgejo-actions\nkind: noise\npatterns:\n  - regex: '^\\s*…?\\s*(\\[[0-9hm]\\d*s\\]\\s*)?(… \\(更多日志下次显示\\)|<静默中…>|\\[p1\\] P1 槽位忙.*)$'\n    loop: true\n"
+  },
+  {
+   "id": "forgejo-actions-runner-version-info",
+   "path": "forgejo-actions/forgejo-actions-runner-version-info.yaml",
+   "yaml": "# samples: private corpus (not redistributed)\n# intent: info 的首个实例 — runner 版本是纯环境快照 (无问题倾向), 排除环境因素/\n# 复现定位时按需取用。行内匹配 (行首为 GHA 时间戳前缀)。\nid: forgejo-actions-runner-version-info\ntitle: Forgejo runner 版本信息\ntool: forgejo-actions\ncategory: infra\nconfidence: high\nintent: info\npatterns:\n  - regex: 'Runner [0-9a-f-]+ \\(version:v[0-9.]+\\) received task'\nkind: signal\n"
+  },
+  {
+   "id": "gcc-clang-diagnostic-error",
+   "path": "gcc-clang/gcc-clang-diagnostic-error.yaml",
+   "yaml": "# samples: nlohmann/json/39124283742-117666036506, nlohmann/json/39124284387-117666038639, curl/curl/39536515179-119014439228, bitcoin/bitcoin/39419195723-118615614767, google/benchmark/37601516077-112726846968\n# 锚: gcc/clang (及同格式派生编译器) 的文件限定诊断头 `<path>:<line>:<col>: (fatal )?error: ` —\n# error 关键字在行中, 须以 file:l:c 前缀限定 (裸 `error:` 不锚, 防误撞); 容忍 GH 时间戳与\n# buildkit `#N M.M ` docker 前缀 (OSS-Fuzz 构建形态, 诊断文档 p3-fn-diagnosis §2)。\n# 扩展: 诊断链结构行 — note/warning 同格式诊断行 / `In file included from` / 源码 gutter\n# (` NNN | src`) / caret gutter (` | ^~`) / 链尾汇总 (`N errors generated.` clang,\n# `compilation terminated.` gcc, `fatal error: too many errors emitted` ferror-limit);\n# 任一行不满足结构即闭块。warning 诊断行仅作扩展不作锚 (成功构建含 warning, 锚 warning 即 FP)。\nid: gcc-clang-diagnostic-error\ntitle: 'gcc/clang 编译诊断链 (file:line:col: error 锚 + note/gutter/汇总扩展)'\ntool: gcc-clang\ncategory: typecheck\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(#[0-9]+ [0-9.]+ )?[^: ]+:[0-9]+:[0-9]+: (fatal )?error: '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(#[0-9]+ [0-9.]+ )?([^: ]+:[0-9]+:[0-9]+: (note|warning|fatal error|error): |In file included from | *[0-9]+ *\\|| *\\|[\\s^~]+|[0-9]+ errors? generated\\. ?$|compilation terminated\\. ?$|fatal error: )'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "gcc-clang-driver-error",
+   "path": "gcc-clang/gcc-clang-driver-error.yaml",
+   "yaml": "# samples: fmtlib/fmt/38693313794-117066468219, curl/curl/39536515179-119014439228, duckdb/duckdb/39424738661-118642875298\n# 锚: 编译器驱动/连接器启动器的终端错误行 `<driver>: (fatal )?error: ` — clang++/clang/gcc/g++/cc/c++/\n# cc1plus/collect2 (及 .exe 变体), 语料主导形态 `clang++: error: linker command failed with exit\n# code 1` / `collect2.exe: error: ld returned 1 exit status`; 另收 gcc -Werror 终止行\n# `cc1plus: all warnings being treated as errors` (无 error: token, 单列 alternation)。\n# 单行即完整诊断 (哪个驱动、什么错误); OSS-Fuzz docker 内构建无 ##[error] 注解, 此行常是\n# 唯一失败标记。已知名良性命中: 探测型 `gcc: error: unrecognized command-line option` 出现在\n# success job (pandoc 39476334916, 2 行, 探测失败后换编译器) — 召回优先容忍 (FP 率 ~0.001%)。\nid: gcc-clang-driver-error\ntitle: '编译器驱动终端错误 (clang++/gcc/collect2: error: 单行 + cc1plus -Werror 终止)'\ntool: gcc-clang\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(#[0-9]+ [0-9.]+ )?((clang\\+\\+|clang-cl|clang|g\\+\\+|gcc|cc1plus|cc1|c\\+\\+|cc|collect2)(\\.exe)?: (fatal )?error: |cc1plus: all warnings being treated as errors)'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "ghc-gcc-phase-failure",
+   "path": "ghc/ghc-gcc-phase-failure.yaml",
+   "yaml": "# samples: haskell/haskell-language-server/39534286083-119007258443, commercialhaskell/stack/39519482191-118959532324, haskell/cabal/39144143826-117724435998, haskell/cabal/39144143778-117724435762 (+9 同形态样本: hls caching / stack macos 系列)\n# 锚: GHC 外部工具调用相位失败签名 `` `gcc' failed in phase `<Phase>'. `` — 反引号引用形态是\n# GHC 独有词法面, 与 gcc/clang 自身 `error:` 词法面不相交。不写 `^` 锚定 (spec §2 锚定惯例):\n# 证据恒嵌行中/带宿主前缀的三个实测变体 —— `ghc-9.10.3: `gcc' failed in phase `Linker'.` (stack\n# 直调)、裸 `` `gcc' failed in phase `` (cabal 错误链)、`While handling `gcc' failed in phase` (cabal\n# 7125 错误链渲染)。单行即完整证据 (相位名 + Exit code); HasCallStack backtrace 为 GHC 内部栈,\n# 无诊断价值不扩展。macOS 大多数场景底层 clang linker 错误行由 gcc-clang-driver-error/ld-linker-error\n# 另行命中, 本规则标记「失败的工具是 GHC 构建」这一归因层。\nid: ghc-gcc-phase-failure\ntitle: 'GHC 相位失败行 (`gcc'' failed in phase `Phase''. (Exit code: N))'\ntool: ghc\ncategory: build\nintent: failure\nconfidence: high\npatterns:\n  - regex: '\\x60gcc\\x27 failed in phase \\x60'\nkind: signal\nattribution:\n  contributor: lc (agent-drafted, opencode/GLM)\n  generated-by: { harness: opencode, model: glm-5.3 }\n  adapter-version: p3-wave1\n"
+  },
+  {
+   "id": "ghc-module-progress-noise",
+   "path": "ghc/ghc-module-progress-noise.yaml",
+   "yaml": "# samples: commercialhaskell/stack/39519482264-118959532391 (2803 行), commercialhaskell/stack/39519482256-118959532282 (769 行), haskell/cabal/39144143826-117724435998 (82 行), jgm/pandoc/39559204077-119086127805 (275 行, 成功样本), hadolint/hadolint/39307342217-118247728410 (102 行, 成功样本)\n# GHC 模块编译进度行 — haskell 族日志最高频噪音 (大语料仓可达 38% 行数): `[ 9 of 130] Compiling\n# <module>` (GHC 裸形态) 与 `pkg > [N of M] Compiling <module>` (cabal/stack 包前缀形态, `[^>]*> `\n# 组), 实测跨仓命中 pandoc/hadolint 等所有 haskell 栈日志, 与非 haskell 栈词法面不相交 (首刷 110 仓\n# 枚举确认命中全为 GHC 进度行)。进度行不携带失败证据, 剔除无信息损失; 失败签名 (error 行/相位失败)\n# 词法面不交, 无信号吞噬风险。\nid: ghc-module-progress-noise\ntitle: 'GHC 模块编译进度行 ([N of M] Compiling, cabal/stack 包前缀两形态)'\ntool: ghc\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?([^>]*> )?\\[ *[0-9]+ of [0-9]+\\] Compiling '\nkind: noise\nattribution:\n  contributor: lc (agent-drafted, opencode/GLM)\n  generated-by: { harness: opencode, model: glm-5.3 }\n  adapter-version: p3-wave1\n"
+  },
+  {
+   "id": "git-fetch-ref-not-found",
+   "path": "git/git-fetch-ref-not-found.yaml",
+   "yaml": "# samples: catchorg/Catch2/37779252546-113317871920, catchorg/Catch2/37779252555-113317873607, catchorg/Catch2/37779252558-113317872300, catchorg/Catch2/37779252571-113317871962\n# git fetch/checkout 取不到远程 ref: `fatal: couldn't find remote ref <ref>` (git 自身签名,\n# tag 被移动/删除后 actions/checkout 拉取失败的高频形态); 扩展透传 GHA toolkit 的\n# `The process '<git>' failed with exit code 128` 退出码级联行 (两行常相邻, 亦有\n# ##[error] 注解前缀形态, 锚与扩展均容忍)。与既有 git-push-* (push 侧) 正交 — 本规则是 fetch 侧。\nid: git-fetch-ref-not-found\ntitle: 'git 远程 ref 不存在 (fatal: couldn''t find remote ref + process 退出码级联)'\ntool: git\ncategory: infra\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(##\\[error\\])?fatal: couldn''t find remote ref '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(##\\[error\\])?The process ''\\S+'' failed with exit code -?[0-9]+'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "git-http-access-denied",
+   "path": "git/git-http-access-denied.yaml",
+   "yaml": "# samples: github.com/laravel/framework/2026-10-24/40103383683-120899934740-Facade-DocBlocks-failure.log.gz\n# git HTTP 传输被服务端拒答: 锚 `fatal: unable to access '<url>': The requested URL returned error: 40[34]`\n# (git 自身标准 fatal 签名, 跨仓通用 — 403 = 有凭据但无权限, 典型为 GITHUB_TOKEN github-actions[bot]\n# push 被拒 (前置行 `remote: Permission to <repo>.git denied to <user>.` 经 context.before 收入输出);\n# 404 = 私有仓/已改名仓匿名拉取。均为确定性拒答, 非可重试瞬态 (5xx/超时族不收, 防成功侧重试级联 FP)。\n# 扩展透传包装器 (git-auto-commit-action 等) 的 `Error: Invalid status code: 128` 与 node 堆栈/code/} 行。\n# 与既有 git-push-auth-failed (无凭据: could not read Username) / git-push-rejected (! [rejected] 协商后拒绝)\n# / git-fetch-ref-not-found (couldn't find remote ref) 正交 — 本规则是 HTTP 层拒答, 补齐 git 传输失败第三形态。\nid: git-http-access-denied\ntitle: 'git HTTP 访问被拒 (fatal: unable to access + 403/404 拒答级联)'\ntool: git\ncategory: infra\nconfidence: high\nintent: failure\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(##\\[error\\])?fatal: unable to access ''[^'']+'': The requested URL returned error: 40[34]'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(Error: Invalid status code: -?[0-9]+|\\s+at \\S|\\s*\\}|  code: -?[0-9]+)'\n    loop: true\nkind: signal\ncontext: { before: 2, after: 0 }\nattribution:\n  contributor: 'LuoChen <2309868+luochen1990@users.noreply.github.com> (agent-drafted, fn-responder/glm-5.3)'\n  generated-by: {harness: fn-responder, model: glm-5.3}\n  adapter-version: 0.1.0"
+  },
+  {
+   "id": "git-push-auth-failed",
+   "path": "git/git-push-auth-failed.yaml",
+   "yaml": "# samples: denoland/deno/39501040556-118898368232\n# git push 无凭据致命错: `fatal: could not read Username for 'https://...': No such device or address`\n# (CI 非交互环境无 terminal 可读凭据), 伴随后续 `send-pack: ...` / `fatal: the remote end hung up`\n# / `error: failed to push some refs` 级联。与既有 git-push-rejected (`! [rejected]` 锚) 不相交 —\n# 本形态无 rejected 行 (认证在协商前失败)。文案特异, 成功语料 0 命中。\nid: git-push-auth-failed\ntitle: 'git push 认证失败 (fatal: could not read Username + 拒答级联)'\ntool: git\ncategory: infra\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?fatal: could not read Username for '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(fatal: |send-pack: |error: failed to push some refs)'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "git-push-rejected",
+   "path": "git/git-push-rejected.yaml",
+   "yaml": "# samples: nix-community/home-manager/37250884107-111578068649, nix-community/home-manager/38778143008-116571035367\n# git push 被拒: 锚 `! [rejected]` 行, 透传扩展 error 行, 再贪心消费后续 hint: 建议行 (loop)。\nid: git-push-rejected\ntitle: 'git push 被拒 (! [rejected] + error: failed to push some refs + hint: 树)'\ntool: git\ncategory: infra\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\s*! \\[rejected\\] '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?error: failed to push some refs to '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?hint: '\n    loop: true\nkind: signal\n"
+  },
+  {
+   "id": "github-actions-checkout-ref-mismatch",
+   "path": "github-actions/github-actions-checkout-ref-mismatch.yaml",
+   "yaml": "# samples: catchorg/Catch2/37779252547-113317872355, catchorg/Catch2/37779252605-113317872554, catchorg/Catch2/37779252613-113317872332, catchorg/Catch2/37779252720-113317872370\n# actions/checkout ref 漂移守卫: `The ref '<ref>' does not point to the expected commit\n# '<sha>'. The ref may have been updated after the workflow was triggered.` — checkout\n# action 的固定文案 (单行), tag 在 workflow 触发后被强推时出现; 与 git-fetch-ref-not-found\n# (couldn't find remote ref, ref 被删) 是同一故障的两种落点。容忍 ##[error] 注解前缀。\nid: github-actions-checkout-ref-mismatch\ntitle: 'actions/checkout ref 漂移 (The ref does not point to the expected commit)'\ntool: github-actions\ncategory: infra\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(##\\[error\\])?The ref ''\\S+'' does not point to the expected commit'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "github-actions-error-annotation",
+   "path": "github-actions/github-actions-error-annotation.yaml",
+   "yaml": "# samples: 全部 42 个失败 job (每个失败 job 至少一条); 代表: sst/opencode/38847484611-116801198128, niri-wm/niri/38297852401-114974037071, nix-community/home-manager/37361595634-111937273676\n# GitHub Actions runner 错误注解 (##[error]...) — 工具无关的失败标记安全网:\n# 覆盖 workflow 级错误 (action 解析失败/超时/label 缺失) 等无具体工具输出的失败形态。\nid: github-actions-error-annotation\ntitle: GH Actions 错误注解行 (##[error] 失败标记安全网)\ntool: github-actions\ncategory: unknown\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?##\\[error\\]'\nkind: signal\n"
+  },
+  {
+   "id": "github-actions-raw-error-command",
+   "path": "github-actions/github-actions-raw-error-command.yaml",
+   "yaml": "# samples: nvim-telescope/telescope.nvim/33289337193-99198089726 (stylua)\n# 安全网加宽 (诊断 §5, 与 github-actions-error-annotation 同族): 原生工作流命令\n# `::error::<msg>` 未被 runner 识别 — runner 只把行首 (宿主时间戳后) 的 ::error::\n# 转成 ##[error] 注解; 上一步彩色输出末尾未换行时, ANSI reset 等色码前缀挂在\n# ::error:: 之前使其逃逸识别, 以原文落日志, ##[error] 永不出现 (本样本即此形态,\n# 锚容忍 0..N 个 ANSI 序列)。FP 面极窄: 行首紧跟 (可含 ANSI) ::error:: 的行\n# 全语料仅本失败样本命中; PowerShell 脚本源码里的 Write-Host \"::error::...\"\n# 因行首有 Write-Host 等文本不在锚面内。\nid: github-actions-raw-error-command\ntitle: 'GH Actions 原生 ::error:: 工作流命令 (含 ANSI 前缀逃逸形态, 安全网)'\ntool: github-actions\ncategory: unknown\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*::error::'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "github-actions-runner-version-info",
+   "path": "github-actions/github-actions-runner-version-info.yaml",
+   "yaml": "# samples: sst__opencode/38850055589-116809069736, niri-wm__niri/*, nix-community__home-manager/* (全部 GHA 样本首行)\n# 成功侧安全网 (spec §0 召回优先配套): GHA job 日志首行恒有 runner 版本声明 —\n# 与失败侧 annotation 安全网对称, 兑现「任何 CI 日志 skim 非零」的结构承诺,\n# 使零块无条件等于「规则集失明」→ fallback。行内匹配 (容忍 BOM/时间戳前缀)。\nid: github-actions-runner-version-info\ntitle: GHA runner 版本信息 (成功侧安全网)\ntool: github-actions\ncategory: infra\nconfidence: high\nintent: info\npatterns:\n  - regex: 'Current runner version: .[0-9.]+.'\nkind: signal\n"
+  },
+  {
+   "id": "gitleaks-leaks-found",
+   "path": "gitleaks/gitleaks-leaks-found.yaml",
+   "yaml": "# samples: self-provided (gitleaks v8.28.2 真机运行产出, 见 PR 附样例 samples/self/gitleaks-fail.log;\n#   产出命令: gitleaks git <repo> --exit-code 1 -v, fixture 内含假 github-pat)\n#   语料激活说明: 语料清单已播种 gitleaks/gitleaks (projects.yaml exempt: onboarding-security),\n#   下一轮 refresh 入库后由其 gitleaks.yml / gitleaks-new.yml 门禁失败样本激活。\n# gitleaks 检出密钥泄漏: 锚为退出路径唯一汇总行 `WRN leaks found: N` (zerolog console 形态,\n#   cmd/root.go findingSummaryAndExit — 无论 verbose 与否恒打印, 是 CI 门禁日志里确定性最强的\n#   失败签名)。partial-scan 变体 `N leaks found in partial scan` 一并覆盖。N>=1 门控: 成功侧\n# 恒为 INF `no leaks found` (WRN 级别 + 计数非零双门控, 零误命中)。verbose 模式的 Finding/Secret\n# 明细块位于汇总行之前, 由消费方按坐标 read_around 展开, 不整块捕获 (索引+摘要)。\n# 前缀容忍: GHA 行时间戳 + zerolog kitchen 时间 (11:02AM) + ANSI 色码 (TTY 形态)。\nid: gitleaks-leaks-found\ntitle: gitleaks 检出密钥泄漏 (leaks found 汇总行)\ntool: gitleaks\ncategory: security\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)?(?:[0-9]{1,2}:[0-9]{2}[AP]M)?(?:\\x1b\\[[0-9;]*m)? ?(?:\\x1b\\[[0-9;]*m)?WRN(?:\\x1b\\[[0-9;]*m)? ?(?:\\x1b\\[[0-9;]*m)?(?:leaks found: [1-9][0-9]*|[1-9][0-9]* leaks found in partial scan)(?:\\x1b\\[[0-9;]*m)?$'\nkind: signal\n"
+  },
+  {
+   "id": "go-compile-error",
+   "path": "go/go-compile-error.yaml",
+   "yaml": "# samples: golangci/golangci-lint/37148759730-111278018268, golangci/golangci-lint/36314507982-108606549068, helm/helm/38907731845-116995460162, helm/helm/38907732044-116995460576\n# 锚: go build/test/vet 输出的包诊断头 `# <import-path>` — 限定首段含点的 import path 形态\n# (`github.com/...` / `k8s.io/...`, 排除 markdown 标题 `# Nix` 与 shell 回显路径 `# _release/...`);\n# 该头只在包构建失败/带诊断时打印, 成功样本零命中。\n# 扩展: 后续 `file.go:line:col: msg` 诊断行 (容忍 ##[error] 注解前缀 — 诊断常被 action 重复注解)。\nid: go-compile-error\ntitle: go 编译/静态诊断块 (# <pkg> 头 + file.go:l:c 诊断行)\ntool: go\ncategory: typecheck\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?# [a-z0-9_-]+\\.[a-z0-9._-]+(/[a-z0-9._/-]+)+$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(##\\[error\\])?\\S+\\.(go|s|c):[0-9]+:[0-9]+: '\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "go-download-noise",
+   "path": "go/go-download-noise.yaml",
+   "yaml": "# samples: etcd-io/etcd/39523275372-118971937030, cli/cli/39469004641-118787805176, gohugoio/hugo/39496684555-118883443514\n# go mod 依赖下载进度行 `go: downloading <module> <ver>` — 高频噪音 (单仓日志可达数百行);\n# 单行 noise 块。与 go-mod-fetch-error 信号链 (imports 链) 行形态不相交。\nid: go-download-noise\ntitle: 'go mod 下载进度噪音行 (go: downloading)'\ntool: go\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?go: downloading \\S+'\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "go-mod-fetch-error",
+   "path": "go/go-mod-fetch-error.yaml",
+   "yaml": "# samples: cli/cli/39469004641-118787805176\n# 锚: go mod 依赖获取失败的链尾错误行 `<pkg>: <dep>@<ver>: read \"<url>\" ...`\n# (实测两种形态: TAB 缩进与列首裸行, 前缀 \\t? 二者兼容; 动词 read/dial) — 单行即完整诊断\n# (哪个包、哪个依赖版本、从哪个 URL 获取失败)。\n# 刻意不锚 `go: <pkg> imports` 链头并扩展链体: 同一失败重复报告数十次时 (实测 cli 74 条链,\n# 420 行) 整段吞入造成压缩率相对退化 >2% 触发双测门禁红; 锚链尾错误行即保住工具级证据。\nid: go-mod-fetch-error\ntitle: 'go mod 依赖获取失败 (链尾 pkg/dep@ver/read url 形态)'\ntool: go\ncategory: deps\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\t?\\S+: \\S+@\\S+: (read|dial) '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "go-test-fail",
+   "path": "go/go-test-fail.yaml",
+   "yaml": "# samples: cli/cli/38576005440-115893162373, mvdan/sh/36580434635-109446864230, spf13/viper/35719892990-106724406040, gohugoio/hugo/39496684555-118883443514, golangci/golangci-lint/38293348404-114959565628, moby/moby/39409304144-118585161133\n# 锚: go test (含 -v) 的顶层单测失败行 `--- FAIL: TestX` — 紧跟行首/时间戳前缀, 不容缩进:\n# 缩进的 `    --- FAIL: TestX/sub` 子测试行是父失败的冗余回显 (子测试失败必有顶层父行,\n# FN 无损), 收紧可免高失败量 job 的重复行堆积; 单行块, 相邻失败行由 A5 自然合并。\nid: go-test-fail\ntitle: 'go test 单测失败行 (--- FAIL: TestX, 顶层形态)'\ntool: go\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*--- FAIL: \\S'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "go-test-pkg-fail",
+   "path": "go/go-test-pkg-fail.yaml",
+   "yaml": "# samples: cli/cli/38576005440-115893162373, helm/helm/38907731845-116995460162, mvdan/sh/36580434635-109446864230, gohugoio/hugo/39496684555-118883443514, golangci/golangci-lint/38293348404-114959565628\n# 锚: go test 包级失败汇总 `FAIL\\t<pkg> [duration|[build failed]]` (TAB 分隔, 与 bare FAIL 区分);\n# 单行块。末尾裸 `FAIL` 收尾行刻意不收 (恒跟随 FAIL\\t 行出现, 冗余回显);\n# `ok`/`?` 汇总行属噪音 (go-test-progress-noise)。\nid: go-test-pkg-fail\ntitle: go test 包级失败汇总 (FAIL + TAB + pkg, 含 build failed 形态)\ntool: go\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*FAIL\\t\\S'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "go-test-progress-noise",
+   "path": "go/go-test-progress-noise.yaml",
+   "yaml": "# samples: golangci/golangci-lint/38293348404-114959565628, spf13/viper/35719892990-106724406040, gohugoio/hugo/39496684555-118883443514\n# go test -v 进度海 (=== RUN/CONT/PAUSE/NAME, --- PASS:/SKIP:/BENCH: 与包级 ok/?\\t 汇总行) — 高频噪音;\n# 单行 noise 块。特异双端限定: `--- (PASS|SKIP|BENCH):` 带冒号 (与 `--- FAIL:` 信号行不相交),\n# `ok|\\? *\\t\\S` 要求 ok/? + TAB + 包名 (与 `FAIL\\t` 信号行不相交)。\nid: go-test-progress-noise\ntitle: go test 进度噪音行 (=== RUN / --- PASS / ok\\t 汇总)\ntool: go\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*(=== (RUN|CONT|PAUSE|NAME) |--- (PASS|SKIP|BENCH): |(ok|\\?) *\\t\\S+)'\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "go-toolchain-mismatch",
+   "path": "go/go-toolchain-mismatch.yaml",
+   "yaml": "# samples: grafana/loki/39519615367-118959968040, grafana/loki/39519614797-118960011729\n# 锚: go 工具链版本不匹配错误 `go: go.mod requires go >= X (running go Y; GOTOOLCHAIN=...)`。\n# 证据恒嵌行中 (实测被 faillint/docker 前缀包裹, 如 `faillint: err: ... stderr: go: ...`),\n# 依 spec §2.A2 锚定惯例段, 锚不带 ^ 以容忍宿主前缀; 字符串本身足够特异 (零成功样本命中)。\nid: go-toolchain-mismatch\ntitle: go 工具链版本不匹配 (go.mod requires go >= X)\ntool: go\ncategory: build\nconfidence: high\npatterns:\n  - regex: 'go: go\\.mod requires go >= '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "golangci-lint-config-invalid",
+   "path": "golangci-lint/golangci-lint-config-invalid.yaml",
+   "yaml": "# samples: caddyserver/caddy/39021385385-117363727085, caddyserver/caddy/39019812000-117978423989, caddyserver/caddy/39018249441-117354684132\n# 锚: golangci-lint v2 config verify 失败的收尾错误串\n# `The command is terminated due to an error: the configuration contains invalid elements`\n# (工具自身文案, 足够特异); 行常为 ##[error] 注解的续行 (无时间戳前缀), 锚不带 ^ 容忍前缀;\n# context.before 带出前一行的 jsonschema 校验错误细节。\nid: golangci-lint-config-invalid\ntitle: golangci-lint 配置校验失败 (config verify 终止错误)\ntool: golangci-lint\ncategory: config\nconfidence: medium\npatterns:\n  - regex: 'The command is terminated due to an error: the configuration contains invalid elements'\ncontext: {before: 1}\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "golangci-lint-issues-summary",
+   "path": "golangci-lint/golangci-lint-issues-summary.yaml",
+   "yaml": "# samples: golangci/golangci-lint/37962612786-113928984390, golangci/golangci-lint/37149099837-111278995040, helm/helm/39328482802-118320340192, moby/moby/39451040240-118726847898\n# 锚: golangci-lint 检出汇总行 `N issues:` (含语法错误的 \"1 issues\" 形态);\n# 扩展 (loop): linter 维度分解行 `* <linter>: <count>`。\n# 单条诊断 (`file.go:l:c: msg (linter)`) 在本语料中恒被 action 转为 ##[error] 注解 (annotation 规则兜底),\n# 本规则锚定工具自身的原始汇总文本。\nid: golangci-lint-issues-summary\ntitle: 'golangci-lint 检出汇总 (N issues: + linter 分解行)'\ntool: golangci-lint\ncategory: lint\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?[0-9]+ issues:$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\* [a-z0-9-]+: [0-9]+$'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "gotestsum-run-summary",
+   "path": "gotestsum/gotestsum-run-summary.yaml",
+   "yaml": "# samples: grafana/loki/39519909006-118961691527, grafana/loki/39507732660-118921105446, moby/moby/39409304144-118585161133, microsoft/TypeScript/39389890820-118518576308\n# 锚: gotestsum 形态运行汇总 `DONE N tests[, M skipped], K failures in D` — 仅在失败数 >0 时\n# 汇总行才含 \"failures\" 字样 (成功运行印 `DONE N tests in D`, 实测 TypeScript 成功侧样例), 锚要求\n# failures 子句在场; 单行块, 定量失败证据。\n# 刻意不锚逐用例行 `=== FAIL: <pkg> <Test> (dur)`: 高失败量 job (实测 TypeScript 430 失败) 会整段\n# 吞入 430+ 行, 压缩率相对退化 >2% 触发双测门禁红; 失败定位细节由消费方 read_around 展开。\nid: gotestsum-run-summary\ntitle: 'gotestsum 运行失败汇总 (DONE N tests, K failures in)'\ntool: gotestsum\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?DONE [0-9]+ tests.*, [0-9]+ failures? in '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "gradle-build-failed",
+   "path": "gradle/gradle-build-failed.yaml",
+   "yaml": "# samples: spring-projects/spring-boot/39470047507-118791406750, spring-projects/spring-framework/38856680807-116829603824, square/okhttp/39055446214-117462364445, gradle/gradle/39543369351-119035952618, mockito/mockito/38290548304-114949316440, diffplug/spotless/37846907002-113549925090, diffplug/spotless/37838843130-113522768986\n# 锚: gradle 构建失败块头 `FAILURE: Build failed with an exception.` — 33 个 JVM 失败 job 实测恒在场;\n#   宿主前缀容忍: GH 时间戳 `2026-...Z ` 与 codeql autobuild 包裹 `[YYYY-MM-DD HH:MM:SS] [autobuild] `\n#   (spotless Analyze 实测, 且与 GH 时间戳叠加成双前缀) — 两可选前缀链式组合, 四种组合形态全覆盖。\n# 扩展 (单 loop 结构化 alternation, 数据驱动): `* Xxx` 节头 (What went wrong/Try/Exception is/...)、`> ` 条目、缩进行\n#   (含 \\t 栈帧)、空行、失败主句 col-0 prose (Execution failed for task/Could not determine/Failed to — 33 job 窗口\n#   实测仅此三族, 逐词枚举不放宽)、`BUILD FAILED in`、`N actionable tasks:`、`[Incubating]` 报告行、弃用提示双行。\n# 刻意收窄: `* Exception is:` 后的 col-0 全限定异常首行即闭块 — 其后是 ~150 行 org.gradle 机器栈帧 (spotless deploy\n#   实测), 原因主句已保住, 吞栈只伤压缩率 (PR #8 gotestsum 先例同理); BUILD FAILED 行偶随丢失不损 FN (锚已命中)。\nid: gradle-build-failed\ntitle: 'gradle 构建失败块 (FAILURE: Build failed with an exception. 锚 + 结构化扩展)'\ntool: gradle\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{2,8}\\] \\[[a-z]+\\] )?FAILURE: Build failed with an exception\\.'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{2,8}\\] \\[[a-z]+\\] )?(\\* [A-Za-z].*|> .*|\\s.*|Execution failed for task .*|Could not determine .*|Failed to .*|BUILD FAILED in .*|[0-9]+ actionable tasks: .*|\\[Incubating\\].*|Deprecated Gradle features.*|You can use .--warning-mode all..*|Configuration cache .*)?$'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "gradle-task-failed",
+   "path": "gradle/gradle-task-failed.yaml",
+   "yaml": "# samples: spring-projects/spring-boot/39147946714-117735522265, square/okhttp/39536785971-119015146862, detekt/detekt/38877252175-116895162344, diffplug/spotless/37211076699-111462740119, gradle/gradle/39420184294-118625702128\n# 锚: gradle 任务失败行 `> Task :path FAILED` — 任务失败时 console 恒打, 提供 failing task 坐标 (checkstyleMain/compileKotlin/\n#   detektMain/spotlessJavaApply/allTests/...), 在并行构建中先于 FAILURE 汇总块出现;\n# 单行块刻意不吞任务日志体 — 失败根因细节由各工具自己的规则捕捉 (kotlinc e:/junit 用例行/FAILURE 块), 坐标行只指路。\n# 与 gradle-task-progress-noise 同源互斥: noise 只剔非 FAILED 后缀 (UP-TO-DATE/FROM-CACHE/NO-SOURCE/SKIPPED/裸形态)。\nid: gradle-task-failed\ntitle: 'gradle 任务失败行 (> Task :path FAILED)'\ntool: gradle\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?> Task :\\S+ FAILED$'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "gradle-task-progress-noise",
+   "path": "gradle/gradle-task-progress-noise.yaml",
+   "yaml": "# samples: square/okhttp/39536785971-119015146862, google/guava/39501139301-118898631630, detekt/detekt/38877252175-116895162344\n# gradle 任务进度海 `> Task :path` — 10 个 JVM 仓语料实测 86k 行 (裸形态 + UP-TO-DATE/FROM-CACHE/NO-SOURCE/SKIPPED 后缀),\n# 是 JVM 栈头号噪音源; 后缀集精确枚举, 刻意不含 FAILED (失败行是证据, 由 gradle-task-failed 提取, 噪声剔除会吃掉它);\n# 引擎 A0 已剥行尾 \\r (语料实测存在 CRLF 变体)。\nid: gradle-task-progress-noise\ntitle: 'gradle 任务进度行噪音 (> Task :path [UP-TO-DATE|...])'\ntool: gradle\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?> Task :\\S+( (UP-TO-DATE|FROM-CACHE|NO-SOURCE|SKIPPED))?$'\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "gradle-test-case-failed",
+   "path": "gradle/gradle-test-case-failed.yaml",
+   "yaml": "# samples: spring-projects/spring-framework/38856680807-116829603824, square/okhttp/39512754508-118937530632, gradle/gradle/39420184294-118625702128, mockito/mockito/38609515792-116130684902, square/okhttp/39391947736-118525332004, diffplug/spotless/37211076699-111462740119\n# 锚: gradle test-logging 的逐用例失败行 — 行首 IDENT (Java/Kotlin 类名, 允许全限定点号) 后接两分支之一:\n#   A) `IDENT[tag] > ...` 家族 (JUnit5 display name: 顶层 `Class > method()` / 嵌套 `Class > m(a) > [2] P FAILED` /\n#      okhttp android `Class > method[emulator-5554 - 17] FAILED`), B) `IDENT method()` 家族 (rich console 无分隔符形态);\n#   IDENT 前缀结构化 (非 `.*` 开头) 杜绝时间戳空回溯误配 — `TS > Task :x FAILED` / `Gradle Test Run :x FAILED`\n#   (gradle 9 任务级汇总行) / `foo bar FAILED` 均被结构性排除 (13 向量离线验证全过);\n# ANSI 容忍 (spotless rich console 实测): 行首 `\\x1b[0K\\x1b[1m`、IDENT/方法名/FAILED 前后的 `\\x1b[31m\\x1b[22m` 色码、\n#   FAILED 后可选 ` (2.6s)` 时长与尾部 reset — 头尾挂 `(?:\\x1b\\[[0-9;]*[mK])*` 吸收器;\n# 扩展 (非 loop 单槽): 缩进的异常首行 `    java.lang.AssertionError[: msg | at File.java:NN]` — gradle 对失败用例\n#   恒打一行异常类摘要 (17 job 实测), 全栈刻意不吞 (机器帧噪音, read_around 可展开)。\nid: gradle-test-case-failed\ntitle: 'gradle 逐用例失败行 (Class > method() FAILED + 缩进异常摘要)'\ntool: gradle\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*[mK])*(?:[A-Za-z_][A-Za-z0-9_.$]*(?:\\x1b\\[[0-9;]*m)*(?:\\[\\S*\\])?(?:\\x1b\\[[0-9;]*m)* > |[A-Za-z_][A-Za-z0-9_.$]*(?:\\x1b\\[[0-9;]*m)* [A-Za-z0-9_$]+\\(\\))[^\\n]*FAILED(?:\\x1b\\[[0-9;]*m)*( \\([0-9.]+s\\))?(?:\\x1b\\[[0-9;]*m)* ?(?:\\x1b\\[[0-9;]*m)*$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )? +(?:\\x1b\\[[0-9;]*m)*(java|org|com|kotlin|io|jdk|sun)\\.[A-Za-z0-9_.$]*(Exception|Error)(: .*| at .*)?$'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "gradle-test-summary-failed",
+   "path": "gradle/gradle-test-summary-failed.yaml",
+   "yaml": "# samples: square/okhttp/39055446214-117462364445, square/okhttp/39135366359-117698680393, gradle/gradle/39420184294-118625702128, mockito/mockito/38609515792-116130684902, spring-projects/spring-boot/39470047089-118791406803\n# 锚: gradle 测试汇总行 `N tests completed, M failed, K skipped` — 测试任务收尾时打印, M>0 才是失败证据\n#   (成功任务不打印此行; 非零守卫 [1-9] 防御性排除 0-failed 形态, 虽语料未出现);\n# 扩展: 恒随的 `There were failing tests. See the report at: file:///...` 报告路径行 (非 loop 单槽)。\n# 定位: 逐用例失败行由 gradle-test-case-failed 捕捉, 本行是定量证据 (总用例数/失败数/跳过数)。\nid: gradle-test-summary-failed\ntitle: 'gradle 测试汇总失败行 (N tests completed, M failed)'\ntool: gradle\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?[0-9]+ tests completed, [1-9][0-9]* failed(, [0-9]+ skipped)?$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?There were failing tests\\. See the report at: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "javac-compile-error",
+   "path": "javac/javac-compile-error.yaml",
+   "yaml": "# samples: diffplug/spotless/38596956882-115966035586, diffplug/spotless/37651290135-112894989017\n# 锚: javac 编译错误行 `<path>.java:LINE: error: msg` — 经 error-prone 增强时 msg 为 `[RuleName]` 形态\n#   (spotless lombokStubs 实测 `[UnnecessarilyFullyQualified] ...`), GHA 又以 `##[error]` 前缀回显同文案 —\n#   `\\S+` 前缀吞掉路径连带可能的 annotation 前缀, 两种形态同锚;\n# 单行块 — javac 的 symbol/location 缩进续行与 `N errors` 汇总刻意不吞 (锚行已含定位与原因, 语料无独立汇总行实例)。\nid: javac-compile-error\ntitle: 'javac 编译错误行 (path.java:NN: error: msg)'\ntool: javac\ncategory: typecheck\nconfidence: medium\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\S+\\.java:[0-9]+: error: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "jest-run-summary",
+   "path": "jest/jest-run-summary.yaml",
+   "yaml": "# samples: prettier/prettier/39541125404-119028863147, stylelint/stylelint/39394395123-118533403404, vercel/next.js/39525968778-118981898143\n# jest 运行汇总行 `Test Suites: N failed, ...` / `Tests:       N failed, ...` / `Snapshots:   N failed, ...`\n# — 冒号是 jest 与 vitest 汇总的区分点 (vitest 无冒号, 见 vitest-run-summary);\n# 要求冒号后首个计数字段为 failed 且 ≥1: 全绿运行打印 `Tests: 14 skipped, 11211 passed, 11225 total`\n# (stylelint 成功样本实测) 不以 failed 开头, 天然零 FP。\nid: jest-run-summary\ntitle: 'jest 运行汇总行 (Test Suites:/Tests:/Snapshots: N failed)'\ntool: jest\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*(Test Suites|Tests|Snapshots): (?:\\x1b\\[[0-9;]*m|[ ])*[1-9][0-9]* failed'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "jest-test-fail",
+   "path": "jest/jest-test-fail.yaml",
+   "yaml": "# samples: prettier/prettier/39541125404-119028863147, vercel/next.js/39525968778-118981898143, stylelint/stylelint/39394395123-118533403404, vercel/next.js/39514658506-118958614831\n# jest 失败证据两形态:\n# ① 行首无色 `FAIL <JS 路径>` — jest 非 TTY 输出 (prettier/next.js/phoenix 实测); 要求行内含 JS 族\n#    扩展名路径 (jest FAIL 恒指名测试文件), 排除 curl 自有测试框架的 `FAIL 1696: '<用例名>'` 形态\n#    (curl 失败样本实测误吸, 其证据归 curl 工具域); 行首锚定不吞缩进形态, 与 vitest 红底 FAIL 不相交;\n# ② `  ● <suite> › <test>` 失败详情头 (U+25CF) — 含 `● Test suite failed to run` 套件级失败\n#    (next.js 实测); ● 前恒有 2 空格缩进 (jest 版式; 2 空格是判定依据 — dotnet agent 活动日志的\n#    列 0 `● Read file` 形态被排除, l0 双测门禁红驱动), 容忍 ANSI 色码;\n#    ● 行要求失败签名 (› 分隔符或 `Test suite failed to run`) — 成功 run 中的 `  ● Console` 输出组\n#    同为 2 空格 + ● 形态 (mitmproxy 成功样本实测 FP), 以签名区分;\n#    vitest 用 ×/❯/✓ 不用 ●, 不相交。\n# 注: jest 带 ANSI 的 ` FAIL ` (stylelint 实测 `[0m[7m[1m[31m FAIL `) 不在本锚内 — 其下方的 ● 行已捕获同\n#     一失败的证据, 放弃对色码 FAIL 字面量的穷举 (避免与 vitest FAIL 字面量的边界纠缠)。\n# context.after=1 仅带出 ● 行下一行 (● 行自身即\"哪个用例挂了\"的证据; 期望-实际 diff 细节体量大\n# — 小日志仓 (phoenix npm-test 342 行 ×6● 实测) 逐●展开触发压缩率双测门禁, 由 read_around 按需展开);\n# FAIL 行与紧随 ● 行相邻由 A5 合并。\nid: jest-test-fail\ntitle: jest 失败行 (行首 FAIL 路径 / ● suite › test 详情头)\ntool: jest\ncategory: test\nconfidence: high\ncontext: {before: 0, after: 1}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(FAIL \\S*\\.(tsx|jsx|mts|cts|ts|js|mjs|cjs)\\b|(?:\\x1b\\[[0-9;]*m)*  (?:\\x1b\\[[0-9;]*m)*● (Test suite failed to run|\\S.*›))'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "just-recipe-fail",
+   "path": "just/just-recipe-fail.yaml",
+   "yaml": "# samples: private corpus (not redistributed)\n# just recipe 失败双形态: exit code (error: recipe `x` failed ... with exit code N)\n# 与 signal 终止 (... by signal N)。行内匹配 (容忍轮询回显/时间戳前缀)。\nid: just-recipe-fail\ntitle: 'just recipe 失败 (exit code / signal)'\ntool: just\ncategory: build\nconfidence: high\npatterns:\n  - regex: 'error: recipe `.+` (failed on line \\d+ with exit code \\d+|was terminated on line \\d+ by signal \\d+)'\nkind: signal\n"
+  },
+  {
+   "id": "kotlinc-compile-error",
+   "path": "kotlinc/kotlinc-compile-error.yaml",
+   "yaml": "# samples: spring-projects/spring-framework/39261704058-118090733990, detekt/detekt/38877252282-116895162712, detekt/detekt/38818112974-116707755936, square/okhttp/39512754508-118937530632\n# 锚: kotlinc 诊断错误行 `e: <path>.kt:LINE:COL message` — 路径两形态 (file:/// URI 与 / 绝对路径) 统一覆盖,\n#   `w:` 警告行刻意不锚 (非失败证据, okhttp -Werror 场景中被提升为 e: 的会自然命中);\n# 搭车同形: detekt 编译插件/ktlint 的规则违例也以 `e: path.kt:105:1 msg [RuleId]` 形态输出 (detekt/gradle 实测),\n#   同锚一并捕获 — 诊断主体的角色是编译器, category 归 typecheck;\n# 单行块, 86 行/7 job 实测均为独立诊断行, 相邻行由 A5 合并。\nid: kotlinc-compile-error\ntitle: 'kotlinc 编译诊断行 (e: path.kt:NN:NN msg)'\ntool: kotlinc\ncategory: typecheck\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?e: (file:)?/\\S+\\.kt:[0-9]+:[0-9]+ '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "ld-linker-error",
+   "path": "ld/ld-linker-error.yaml",
+   "yaml": "# samples: fmtlib/fmt/38693313794-117066468219, curl/curl/39514513518-118943342355\n# 锚: GNU ld (bfd) 链接错误行 `(/path/to/)?ld(\\.exe)?: ...` — 语料形态 `DWARF error: invalid or\n# unhandled FORM value` / `<obj>: in function \\`...':` / `undefined reference to ...`; ld 错误链\n# 每行都自带 ld 前缀 (bfd 风格), 扩展即锚形态自循环。锚不限定 error 关键字: `in function` /\n# `undefined reference` 等证据行同样带 ld 前缀且只在失败时成簇出现 (全语料 success 侧 0 命中)。\n# 扩展另收无前缀续行: 老式 bfd 把 `undefined reference to` 印在下一行且不带 ld 前缀\n# (curl AM-mbedtls 实测: `<file.c>:NN:(.text+0xNN): undefined reference to ...`), 以\n# 节偏移签名 `\\(\\.text...\\): undefined reference` 限定, 仅在锚后扩展态可达 (无独立开块风险)。\nid: ld-linker-error\ntitle: 'GNU ld 链接器错误链 (ld: DWARF error / undefined reference / in function)'\ntool: ld\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\S*/)?ld(\\.exe)?: '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?((\\S*/)?ld(\\.exe)?: |(\\S+:[0-9]+:)?\\(\\.[^)]+\\): (undefined reference|more undefined references) to )'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "lintcommit-invalid-message",
+   "path": "lintcommit/lintcommit-invalid-message.yaml",
+   "yaml": "# samples: neovim/neovim/39574891773-119137848358, neovim/neovim/39577601889-119146906016\n# neovim 自研 commit message 检查 (`scripts/lintcommit.lua`, cmake lintcommit 目标):\n# `Invalid commit message: \"<原文>\"` + 4 空格缩进的原因行 (`Commit: <sha>` /\n# `Invalid commit type ...` / `Description ends with a period` 等)。文案带项目特异\n# 标记 (spec §1.S: 自研检查带特异锚 → 中央仓), 逐违规条目循环开块 (loop 消费缩进原因行)。\nid: lintcommit-invalid-message\ntitle: 'lintcommit 违规条目 (Invalid commit message + 缩进原因)'\ntool: lintcommit\ncategory: lint\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Invalid commit message: '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?    \\S'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "make-directory-noise",
+   "path": "make/make-directory-noise.yaml",
+   "yaml": "# samples: openssl/openssl/39431097056-118656056867, duckdb/duckdb/39424738661-118642875298, ClickHouse/ClickHouse/39538792771-119022068736\n# make 递归构建的目录进出回显 `make[N]: Entering/Leaving directory '...'` — 全语料 12385 行,\n# 最大单簇噪音源之一; 与 make-target-error 信号行动词面不相交 (Entering/Leaving vs ***)。\n# 单行 noise 块。\nid: make-directory-noise\ntitle: 'make 目录回显噪音行 (Entering/Leaving directory)'\ntool: make\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?make(\\[[0-9]+\\])?: (Entering|Leaving) directory '\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "make-target-error",
+   "path": "make/make-target-error.yaml",
+   "yaml": "# samples: nlohmann/json/39124283742-117666036506, openssl/openssl/39431097056-118656056867, duckdb/duckdb/39424738661-118642875298\n# 锚: make 目标失败行 `make[N]: *** [Makefile:l: target] Error N` — make 递归构建的失败逐级上浮\n# (make[2]→make[1]→make), 单行块; `Entering/Leaving directory` 间行归 make-directory-noise。\n# `make: *** No rule to make target` 形态语料未现 (不写); mingw32-make 前缀语料未现。\n# 全语料 success 侧 0 命中 (52 个 failure 样本命中)。\nid: make-target-error\ntitle: 'make 目标失败行 (make[N]: *** [Makefile:l: target] Error N)'\ntool: make\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?make(\\[[0-9]+\\])?: \\*\\*\\* \\[[^]]+\\] Error [0-9]+'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "maven-download-progress-noise",
+   "path": "maven/maven-download-progress-noise.yaml",
+   "yaml": "# samples: google/guava/39478899884-118821996962, google/guava/37628608564-112816731912\n# maven 依赖下载进度 `[INFO] Downloading/Downloaded ...` — 未开 -ntp 的 job 上成海 (2.3k 行/10 仓);\n# 纯传输进度无证据价值; 下载失败走 [ERROR]/Failed to execute goal, 不在本形态内。\nid: maven-download-progress-noise\ntitle: 'maven 依赖下载进度行噪音 ([INFO] Downloading/Downloaded)'\ntool: maven\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\[INFO\\] (Downloading|Downloaded) .*$'\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "maven-goal-failed",
+   "path": "maven/maven-goal-failed.yaml",
+   "yaml": "# samples: google/guava/39478899884-118821996962, google/guava/37628608564-112816731912, diffplug/spotless/37213674732-111470520034\n# 锚: maven goal 执行失败行 `[ERROR] Failed to execute goal <gav>:<goal> ...` — BUILD FAILURE 块的定位行,\n#   根因多样实测 (deps 解析失败 / surefire 测试失败 / spotless lint 失败), category 按 maven 的构建系统角色归 build;\n# 宿主前缀容忍: GH 折叠形态 `  > [ERROR] ...` (spotless maven 实测, 每行带 `  > ` 续行前缀) 由 `( *> *)?` 吸收;\n# 扩展 (loop): 后续 `[ERROR]` 行 (含 `\\tCaused by` 缩进形态) / `\\tat ` 栈帧 / `... N more` / `Caused by: ` /\n#   全限定异常类首行 (spotless `  > org.apache.maven.lifecycle.LifecycleExecutionException: ...` 实测)。\nid: maven-goal-failed\ntitle: 'maven goal 失败行 ([ERROR] Failed to execute goal + [ERROR]/栈扩展)'\ntool: maven\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?( *> *)?\\[ERROR\\] Failed to execute goal '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?( *> *)?(\\[ERROR\\].*|\\tat \\S.*|\\.\\.\\. [0-9]+ more.*|Caused by: .*|(java|org|com|kotlin|io|jdk|sun)\\.[A-Za-z0-9_.$]*(Exception|Error).*)$'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "maven-surefire-failures-summary",
+   "path": "maven/maven-surefire-failures-summary.yaml",
+   "yaml": "# samples: google/guava/33512973437-99872925160, google/guava/35379108230-105710770142\n# 锚: surefire 模块收尾汇总段头 `[ERROR] Failures: ` / `[ERROR] Errors: ` — Results 之后打印, 仅存在失败/错误时出现;\n# 扩展 (loop): 后续 `[ERROR]` 行 — 含逐用例摘要 `  Class.method:LINE expected: ... ` 与定量汇总\n#   `[ERROR] Tests run: N, Failures: M, Errors: K, Skipped: W`; 段中夹杂的 `[INFO] ` 空行分隔亦吞 (保块连续),\n#   段尾 `[INFO] ---` 分隔线闭块。\n# 与 maven-surefire-test-failed 互补: 那条抓逐用例现场, 本条抓定量汇总 (N tests / M failures 全局账)。\nid: maven-surefire-failures-summary\ntitle: 'surefire 失败汇总段 ([ERROR] Failures: 段头 + [ERROR] 条目扩展)'\ntool: maven\ncategory: test\nconfidence: medium\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?( *> *)?\\[ERROR\\] (Failures|Errors): ?$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?( *> *)?(\\[ERROR\\].*|\\[INFO\\] *)$'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "maven-surefire-test-failed",
+   "path": "maven/maven-surefire-test-failed.yaml",
+   "yaml": "# samples: google/guava/33512973437-99872925160, google/guava/35379108230-105710770142\n# 锚: maven surefire 的逐用例失败标记 `<<< FAILURE!` — surefire 独有 token, 行内 [ERROR] 前缀 + 行尾标记双向锚定;\n#   两形态: `[ERROR] Class.method -- Time elapsed: N s <<< FAILURE!` (用例行) 与\n#   `[ERROR] Tests run: N, Failures: M <<< FAILURE! -- in Class` (类汇总行);\n# 扩展 (loop): 紧随的裸异常首行 (col-0 全限定类, `java.lang.AssertionError: ...`)、`\\tat ` 栈帧、`Caused by: `、\n#   `... N more`、缩进续行 (长断言消息折行实测) — 首个非匹配行 (下一个 [INFO]/[ERROR]) 闭块。\nid: maven-surefire-test-failed\ntitle: 'surefire 逐用例失败块 (<<< FAILURE! 锚 + 异常/栈扩展)'\ntool: maven\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?( *> *)?\\[ERROR\\] .*<<< FAILURE!'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?((java|org|com|kotlin|io|jdk|sun)\\.[A-Za-z0-9_.$]*(Exception|Error)(: .*)?$|\\tat \\S.*|\\.\\.\\. [0-9]+ more.*|Caused by: .*| +\\S.*)$'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "maven-test-progress-noise",
+   "path": "maven/maven-test-progress-noise.yaml",
+   "yaml": "# samples: google/guava/33512973437-99872925160, google/guava/35379108230-105710770142\n# maven surefire 通过用例的进度海 `[INFO] Tests run: N, Failures: 0, Errors: 0 ...` — guava 单 job 上千行;\n# 双守卫: `[INFO]` 前缀 (失败证据走 `[ERROR]`, 由 surefire 规则提取) + `Failures: 0, Errors: 0` 零失败形态\n#   (nonzero 形态是失败证据, 字面排除); 两变体: per-class `... -- in Class` 行与模块 Results 聚合行 (无 Time elapsed 尾)。\nid: maven-test-progress-noise\ntitle: 'maven 通过用例进度行噪音 ([INFO] Tests run: N, Failures: 0)'\ntool: maven\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\[INFO\\] Tests run: [0-9]+, Failures: 0, Errors: 0(, Skipped: [0-9]+)?(, Time elapsed: [0-9.]+ s( -- in \\S+)?)?$'\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "maven-wrapper-main-missing",
+   "path": "maven/maven-wrapper-main-missing.yaml",
+   "yaml": "# samples: google/guava/39501139301-118898631630, google/guava/37625014458-112804456458, google/guava/37089614602-111106948262\n# 锚: maven wrapper 启动失败 `Error: Could not find or load main class org.apache.maven.wrapper.MavenWrapperMain` —\n#   wrapper jar 缺失/未下载时 JVM 启动即败, 类名全限定特异锚 (guava 三个 job 同形复现);\n# 扩展: 恒随的 `Caused by: java.lang.ClassNotFoundException: org.apache.maven.wrapper.MavenWrapperMain`。\n# 类别: 构建工具链环境破损 (wrapper 产物未就位), 归 infra 而非 deps — 无依赖解析过程, 是运行环境缺件。\nid: maven-wrapper-main-missing\ntitle: 'maven wrapper 启动失败 (MavenWrapperMain 类缺失)'\ntool: maven\ncategory: infra\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Error: Could not find or load main class org\\.apache\\.maven\\.wrapper\\.MavenWrapperMain$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Caused by: java\\.lang\\.ClassNotFoundException: org\\.apache\\.maven\\.wrapper\\.MavenWrapperMain$'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "minitest-failure-report",
+   "path": "minitest/minitest-failure-report.yaml",
+   "yaml": "# samples: puma/puma/38812018591-116687420882 (truffleruby), puma/puma/38838902320-116774790113\n# 锚: minitest 失败报告条目头 `  N) Failure:` / `  N) Error:` — `Failure:`/`Error:`\n# 关键字是与 rspec `  N) <test名>` 条目、mocha `  N) <title>` 条目的区分签名\n# (PR #11 跨栈同形头教训: 锚必须带宿主语境限定)。扩展: 测试定位行\n# `TestClass#test_method [path/test.rb:NN]:` + 一行消息; context.after=2 补消息\n# 续行与汇总边界。\nid: minitest-failure-report\ntitle: 'minitest 失败报告条目 (  N) Failure: / Error:)'\ntool: minitest\ncategory: test\nconfidence: high\ncontext: {before: 0, after: 2}\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )? {2}[0-9]+\\) (?:Failure|Error):'\n  - regex: '^\\S+#[a-zA-Z_][a-zA-Z0-9_]* \\[\\S+\\]:'\n  - regex: '^\\S.*$'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "minitest-run-summary",
+   "path": "minitest/minitest-run-summary.yaml",
+   "yaml": "# samples: puma/puma/38812018591-116687420882 (truffleruby), puma/puma/38838902320-116774790113\n# 锚: minitest 运行汇总 `N runs, M assertions, K failures, J errors, L skips` —\n# 锚仅匹配 K≥1 (failures 段非零起始); errors>0 而 failures=0 的形态由\n# `0 failures, [1-9]J` 分支覆盖。0 失败的成功汇总不命中 (success 样本零 FP)。\nid: minitest-run-summary\ntitle: 'minitest 失败汇总行 (N runs, M assertions, K failures...)'\ntool: minitest\ncategory: test\nconfidence: medium\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?[0-9]+ runs, [0-9]+ assertions, (?:[1-9][0-9]* failures?(?:\\r?$|\\r?, [0-9]+ errors)|0 failures, [1-9][0-9]* errors)'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "mocha-test-fail",
+   "path": "mocha/mocha-test-fail.yaml",
+   "yaml": "# samples: eslint/eslint/37487000067-112349519907\n# mocha 失败汇总行 `  N failing` (N≥1; 行尾锚定防误吞散文) — 编号明细头 `  N) name` 形态是跨框架\n# 通用约定 (minitest `N) Error:` puma 实测 166 行 / brew `N) brew shellenv...` 实测), 作为锚会大面积\n# 跨剥非 JS 栈日志 (l0 双测门禁红驱动收紧), 不入锚; 编号明细由 after-context 自然带回。\n# 通过侧 `N passing` 与 minitest `N failures, M errors` (puma/brew 实测) 均不相交。\nid: mocha-test-fail\ntitle: 'mocha 失败汇总行 (N failing, N≥1)'\ntool: mocha\ncategory: test\nconfidence: high\ncontext: {before: 0, after: 6}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*\\s*[1-9][0-9]* failing(?:\\x1b\\[[0-9;]*m)*$'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "msbuild-build-failed",
+   "path": "msbuild/msbuild-build-failed.yaml",
+   "yaml": "# samples: AvaloniaUI/Avalonia/39556053491-119075960272 (2 处: DBG 彩行与缩进汇总行两种形态)\n# 锚: MSBuild 构建失败汇总行 `Build FAILED.` — 与成功侧 `Build succeeded.` 对偶的词法面; xcodebuild\n# 的 `** BUILD FAILED **` 全大写+星号, 词法面不相交。不写 `^` 锚定: 实测植于 `06:40:02 [ DBG ] `\n# 彩色控制台前缀与缩进汇总中, 彩行尾随 ANSI reset (`Build FAILED.\\x1b[0m`) 故不锚定行尾。后随\n# context 8 行扫入失败详情列表与 `N Error(s) / N Warning(s)` 计数 (`0 Error(s)` 单行出现于成功构建,\n# 不可单独作锚 — 本规则仅锚 FAILED 结论行; 详情行由 csc-diagnostic-error 逐行命中)。\nid: msbuild-build-failed\ntitle: 'MSBuild 构建失败汇总 (Build FAILED. + 错误列表 + Error(s) 计数)'\ntool: msbuild\ncategory: build\nintent: failure\nconfidence: high\ncontext: { before: 0, after: 8 }\npatterns:\n  - regex: 'Build FAILED\\.'\nkind: signal\nattribution:\n  contributor: lc (agent-drafted, opencode/GLM)\n  generated-by: { harness: opencode, model: glm-5.3 }\n  adapter-version: p3-wave1\n"
+  },
+  {
+   "id": "msvc-compiler-error",
+   "path": "msvc/msvc-compiler-error.yaml",
+   "yaml": "# samples: fmtlib/fmt/38947405828-117129908465, luarocks/luarocks/37336450627-111865251576\n# 锚: MSVC 编译器诊断头 `<file>(line[,col]): (fatal )?error C<code>: ` — 新式带列号/工程尾注\n# (`gtest.h(11528,1): error C2678: ... [format-test.vcxproj]`), 旧式仅行号 (`c_module.c(11):\n# fatal error C1004:`); `error C\\d+:` 码段是 MSVC 独有签名, 与 gcc/clang 的 `error:` 词法面\n# 不相交。单行即完整定位 (文件/行/码/消息); 遵循 `warning C` 不锚纪律 (成功构建含警告)。\nid: msvc-compiler-error\ntitle: 'MSVC 编译器诊断行 (file(l,c): error Cxxxx:)'\ntool: msvc\ncategory: typecheck\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\S[^(]*\\([0-9]+(,[0-9]+)?\\): (fatal )?error C[0-9]+: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "mypy-found-errors",
+   "path": "mypy/mypy-found-errors.yaml",
+   "yaml": "# samples: pandas-dev/pandas/39531298631-118997555493, pallets/flask/37633292268-112832844965, openai/openai-python/39372372709-118462875039\n# 锚: mypy 运行汇总 `Found N errors in M files (checked K source files)`;\n# `(checked ... source files)` 尾部是 mypy 结构签名 — 与 ruff 的 `Found N errors (N fixed, ...)`\n# (修复汇总, 可出现在成功上下文) 区分, 防跨工具误吸。\nid: mypy-found-errors\ntitle: mypy 运行失败汇总 (Found N errors in M files)\ntool: mypy\ncategory: typecheck\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Found [0-9]+ errors? in [0-9]+ files? \\(checked [0-9]+ source files?\\)$'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "mypy-type-error",
+   "path": "mypy/mypy-type-error.yaml",
+   "yaml": "# samples: pandas-dev/pandas/39531298631-118997555493, pallets/flask/37633292268-112832844965, openai/openai-python/39372372709-118462875039\n# 锚: mypy 诊断行 `<path>.py:<line>[:<col>]: error: <msg>[ [code]]`\n# (列号可选 — 实测 pandas 形态无列; [code] 后缀可选, 不入锚);\n# 单行块; mypy note: 行是上下文提示不入规则 (宁缺勿错)。\nid: mypy-type-error\ntitle: 'mypy 类型诊断行 (x.py:NN: error:)'\ntool: mypy\ncategory: typecheck\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*\\S+\\.py:[0-9]+(?::[0-9]+)?: error: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "nim-segv",
+   "path": "nim/nim-segv.yaml",
+   "yaml": "# samples: private corpus (not redistributed)\n# Nim 运行时段错误 (本仓 P1 双红灯事故形态): SIGSEGV 单行强签名, 全文仅出现于崩溃点。\nid: nim-segv\ntitle: Nim SIGSEGV 崩溃\ntool: nim\ncategory: infra\nconfidence: high\npatterns:\n  - regex: 'SIGSEGV: Illegal storage access'\nkind: signal\n"
+  },
+  {
+   "id": "ninja-build-stopped",
+   "path": "ninja/ninja-build-stopped.yaml",
+   "yaml": "# samples: fmtlib/fmt/38693313794-117066468219, nlohmann/json/38941919709-117111428409, ClickHouse/ClickHouse/39538792771-119022068736\n# 锚: ninja 构建终止行 `ninja: build stopped: ` — 实测两尾: `subcommand failed.` (主流) 与\n# `cannot make progress due to previous errors.`; 容忍 python 风格 `[YYYY-MM-DD HH:MM:SS]` 前缀\n# 与缩进 (cmake try_compile 捕获)。与 ninja-failed (失败头) 互补: 失败头与终止行间可隔数十行\n# (fmt 样本隔 46 行), 各自单行成块, 中间证据由 ld/gcc-clang/诊断链规则填充。\nid: ninja-build-stopped\ntitle: 'ninja 构建终止行 (build stopped: subcommand failed / cannot make progress)'\ntool: ninja\ncategory: build\nconfidence: medium\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\[[0-9: -]+\\] )? *ninja: build stopped: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "ninja-failed",
+   "path": "ninja/ninja-failed.yaml",
+   "yaml": "# samples: fmtlib/fmt/38693313794-117066468219, curl/curl/39536515179-119014439228, duckdb/duckdb/39424738661-118642875298, google/benchmark/37601516037-112726844566, ClickHouse/ClickHouse/39538792771-119022068736\n# 锚: ninja 构建失败头 `FAILED: [code=N] <target>` — 两种实测形态: 裸 `FAILED: bin/x` (fmt) 与\n# `FAILED: [code=1] cmTC_x` (新 ninja, curl/duckdb 的 cmake try_compile 内); 容忍缩进 (try_compile\n# 捕获输出带缩进) 与尾随空格。单行块: 后续命令回显/链接错误由 ld/gcc-clang 规则捕获, 相邻块 A5 自然\n# 合并。pytest 的 `FAILED test.py::x` 无冒号不冲突; 全语料 success 侧 0 命中。\n# OSS-Fuzz 场景 (fmt fuzz, FN 诊断 §4) 此行是仅有的失败证据之一。\nid: ninja-failed\ntitle: 'ninja 构建失败头 (FAILED: [code=N] target, col-0/缩进双形态)'\ntool: ninja\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )? *FAILED: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "ninja-progress-noise",
+   "path": "ninja/ninja-progress-noise.yaml",
+   "yaml": "# samples: duckdb/duckdb/39424738661-118642875298, nlohmann/json/38941919709-117111428409\n# ninja 原生进度行 `[N/M] Building|Linking|Generating|...` — 全语料 2.7 万行级最大噪音簇之一;\n# 动词白名单限定是 FP 防线: `[N/M]` 前缀非 ninja 独有 (CodeQL `[1/29] Loaded ...`、swift-testing\n# `[1/526] Testing ...` 同形), Loaded/Testing 等非构建动词不入列。单行 noise 块。\nid: ninja-progress-noise\ntitle: 'ninja 构建进度噪音行 ([N/M] Building/Linking/Generating/...)'\ntool: ninja\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\[[0-9]+/[0-9]+\\] (Building|Compiling|Linking|Generating|Installing|Fetching|Creating|Cleaning|Copying|Re-checking)'\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "nix-build-failed",
+   "path": "nix/nix-build-failed.yaml",
+   "yaml": "# samples: LnL7/nix-darwin/39526610092-118982637604, LnL7/nix-darwin/34966407807-104371798438, LnL7/nix-darwin/34418330053-102688067013\n# nix 构建失败族 (nix build / nix-build 的 realisation 失败, 非求值错误): 锚为三种行内\n# error 形态 — ① `builder for '...drv' failed with exit code N;` (根因 drv, 后随 7 缩进的\n# \"last N log lines:\" 构建器日志摘录, > 前缀行 + \"For full logs, run 'nix log ...'\" 收尾);\n# ② `N dependencies of derivation '...drv' failed to build` (依赖级联回传, 可重复多行);\n# ③ `build of '...' failed` (终局汇总, drv 清单可极长)。与 nix-eval-error-tree (裸 error:\n# 锚的求值树, category=config) 互补 — 本族是 build 域, 求值已成功、构建期失败。\nid: nix-build-failed\ntitle: nix 构建失败 (builder 失败 + 依赖级联)\ntool: nix\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?error: (builder for ''/nix/store/\\S+\\.drv'' failed with exit code [0-9]+;?|[0-9]+ dependencies of derivation ''/nix/store/\\S+\\.drv'' failed to build|build of ''.+'' failed)$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\s{7,}\\S.*)?$'\n    loop: true\nkind: signal\n"
+  },
+  {
+   "id": "nix-deprecation-warning",
+   "path": "nix/nix-deprecation-warning.yaml",
+   "yaml": "# samples: private corpus (not redistributed)\n# intent: warning 的首个实例 — nix 生态 deprecation/stateVersion 类警告在成功与失败 run\n# 均大量出现, 按 spec §1 intent 分层: 成功 job 命中属预期 (不计 FP), 片段仍输出供 agent 参考。\nid: nix-deprecation-warning\ntitle: nix 生态 deprecation/配置警告\ntool: nix\ncategory: config\nconfidence: medium\nintent: warning\npatterns:\n  - regex: 'warning: (system\\.stateVersion is not set|stdenv\\.is\\w+ is deprecated|''.*'' has been renamed to/replaced by|getExe: Package .+ does not have the meta\\.mainProgram|unknown flake output|colliding subpath)'\nkind: signal\n"
+  },
+  {
+   "id": "nix-drv-list-noise",
+   "path": "nix/nix-drv-list-noise.yaml",
+   "yaml": "# samples: private corpus (not redistributed)\n# nix drv 清单噪音: these N derivations will be built: 锚 + 后续 store path 列表行;\n# building '...' 行与 derivation evaluated/checking 回显行同属构建过程噪音。\nid: nix-drv-list-noise\ntitle: nix 构建清单与回显噪音\ntool: nix\nkind: noise\npatterns:\n  - regex: 'these \\d+ derivations will be built:'\n  - regex: '^\\s*(…\\s*(\\[[0-9hm]\\d*s\\]\\s*)?)?(building ''/nix/store/.+|/nix/store/[a-z0-9]+-\\S+|derivation evaluated to /nix/store/.+|checking (derivation|NixOS configuration|flake output).*)$'\n    loop: true\n"
+  },
+  {
+   "id": "nix-eval-error-tree",
+   "path": "nix/nix-eval-error-tree.yaml",
+   "yaml": "# samples: nix-community/home-manager/37227366335-111509727188, nix-community/home-manager/37226440592-111506975547, nix-community/home-manager/37226224086-111506339398\n# 现代 nix (>=2.18) 求值错误树: 锚为独立成行的裸 `error:` (git/cargo 的 `error: <msg>` 行内形态\n# 不受影响), 扩展为 7+ 空格缩进树行 (… 帧/at 位置/代码 gutter/末帧 error:) 与树内空行 (loop),\n# 任意 col-0 非空行 (如 ##[error]) 闭块。来源: nix build --show-trace。\nid: nix-eval-error-tree\ntitle: 'nix 求值错误树 (裸 error: 锚 + 7 缩进 trace 帧)'\ntool: nix\ncategory: config\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?error: ?$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\s{7,}\\S.*)?$'\n    loop: true\nkind: signal\n"
+  },
+  {
+   "id": "nix-fetch-input-noise",
+   "path": "nix/nix-fetch-input-noise.yaml",
+   "yaml": "# samples: private corpus (not redistributed)\n# nix fetch 回显噪音: fetching path/git input 行 (单 run 可达数百行, 零信息量)。\nid: nix-fetch-input-noise\ntitle: nix fetching input 回显噪音\ntool: nix\nkind: noise\npatterns:\n  - regex: 'fetching (path|git|github) input '\n    loop: true\n"
+  },
+  {
+   "id": "nix-option-conflict",
+   "path": "nix/nix-option-conflict.yaml",
+   "yaml": "# samples: private corpus (not redistributed)\n# nix option 冲突定义错误: 本仓轮询回显形态为单行强签名 (值树被逐行回显打散,\n# 每 host 一行 `✗ host Ns error: ...`), 故取行内锚不设扩展 (相邻块由 A5 合并)。\nid: nix-option-conflict\ntitle: nix option 冲突定义错误\ntool: nix\ncategory: config\nconfidence: high\npatterns:\n  - regex: \"error: The option `.+['`] has conflicting definition values:\"\nkind: signal\n"
+  },
+  {
+   "id": "nixfmt-fail-on-change",
+   "path": "nixfmt/nixfmt-fail-on-change.yaml",
+   "yaml": "# samples: niri-wm/niri/38707882543-116331716854, niri-wm/niri/38707552842-116330622870\n# nixfmt --ci 检出未格式化改动: 锚为其稳定报错行, context.before=2 带出\n# `formatted N files (M changed)` 统计行定位改动量 (仅扩输出)。\nid: nixfmt-fail-on-change\ntitle: 'nixfmt 格式检查失败 (Error: unexpected changes detected)'\ntool: nixfmt\ncategory: fmt\nconfidence: high\ncontext: {before: 2, after: 0}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Error: unexpected changes detected'\nkind: signal\n"
+  },
+  {
+   "id": "node-test-fail",
+   "path": "node-test/node-test-fail.yaml",
+   "yaml": "# samples: withastro/astro/39252499883-118061339316, withastro/astro/39509653173-118927945587\n# node:test (node 内建 test runner, spec reporter) 失败证据: 红色 `✖` (U+2716) 前缀行 —\n# ① 运行列表中的逐用例失败行 `✖ <name> (dur)`;\n# ② 汇总分节头 `✖ failing tests:` 及其下重放的失败用例行。\n# 通过用例是绿色 `✔` (U+2714), 与 ✖ 字符级不相交; ✖ 前恒有红色前景 `\\x1b[31m` (node:test 版式;\n# stan 静态分析的洋红 `✖ Ignore` 形态被排除, stack 失败样本实测误吸), 容忍 turbo 任务标签前缀\n# (`astro:test: `) 与 ANSI 色码; vitest/jest/mocha 均不用 ✖ (vitest 用 ×U+00D7), 不相交。\n# context.after=4 带出汇总节的 AssertionError 首段。\nid: node-test-fail\ntitle: 'node:test 失败用例行 (红✖ name (dur) / ✖ failing tests: 分节头)'\ntool: node-test\ncategory: test\nconfidence: medium\ncontext: {before: 0, after: 4}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*(?:\\S+: )?(?:\\x1b\\[[0-9;]*m|[ ])*\\x1b\\[31m✖ '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "node-test-pass-noise",
+   "path": "node-test/node-test-pass-noise.yaml",
+   "yaml": "# samples: withastro/astro/39252499883-118061339316\n# node:test 通过用例的 ✔ 行 (绿 `[32m✔`, U+2714) — 被失败 ✖ 片段的 after-context 带入输出\n# (astro 实测: 运行列表中失败 ✖ 紧邻通过 ✔), 剔除以保失败证据聚焦; ✔ 与失败标记 ✖ (U+2716)\n# 字符级不相交。\nid: node-test-pass-noise\ntitle: node:test 通过用例行 (✔ name (dur))\ntool: node-test\nconfidence: low\npatterns:\n  - regex: '(?:\\x1b\\[[0-9;]*m)+✔'\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "node-uncaught-exception",
+   "path": "node/node-uncaught-exception.yaml",
+   "yaml": "# samples: withastro/astro/39438287373-118681057110, withastro/astro/39266259054-118106497677, withastro/astro/39272505940-118128219918\n# node 运行时未捕获异常报告: `(SyntaxError|TypeError|ReferenceError|RangeError|URIError|EvalError): <msg>`\n# 行首签名 + `    at ` 栈帧 + 空行 + `Node.js vN.N` 尾行 (astro Changelog job 的 announce.mjs 崩溃形态;\n# ant-design typedoc 崩溃同形态)。锚要求 (GHA 时间戳后) 行首直接是错误类型字面量 — 成功语料 0 命中\n# (node-JSError 预检); `Node.js v` 尾行单独出现在成功 job (vuejs/rails, 版本探测输出) 但不作锚, 无 FP 面。\n# ext 单帧非 loop: 栈深可十余行 (ant-design 11 帧), 全吞致单仓压缩率退化 >2% (CI 双测实证) —\n# 索引+摘要哲学只取首帧定位崩溃点, 深栈与 Node.js 版本尾行由消费方 read_around 按坐标展开。\nid: node-uncaught-exception\ntitle: 'node 未捕获异常 (SyntaxError/TypeError/...: 头 + at 栈 + Node.js v 尾)'\ntool: node\ncategory: unknown\nconfidence: high\ncontext: {before: 0, after: 2}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(SyntaxError|TypeError|ReferenceError|RangeError|URIError|EvalError): '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?    at \\S'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "nvim-test-assertion-detail",
+   "path": "nvim-test/nvim-test-assertion-detail.yaml",
+   "yaml": "# samples: neovim/neovim/39306452241-118244679306, neovim/neovim/39336560827-118347407101, neovim/neovim/39354801369-118407030881, neovim/neovim/39493051453-118870913961, neovim/neovim/39498802072-118891310509\n# neovim 测试 harness (test/reporter.lua) 失败清单的断言详情块: `...<截断路径>.lua:<行>: <msg>`\n# — 行首 `...` 是 harness 对长路径的截断标记 (栈帧行带 \\t 前缀, 不在锚面), 扩展透传\n# Expected/Actual 头 (`Expected (anywhere):` / `Expected values to be equal.` 等变体,\n# loop) 与屏幕转储行 (`  |{...}`, loop)。与 nvim-test-run-fail (内联 RUN 行) 互补:\n# 本规则兜清单侧详情, 彼规则兜运行侧条目。\nid: nvim-test-assertion-detail\ntitle: 'nvim 测试断言详情块 (...path.lua:N: msg + Expected/Actual + 屏幕转储)'\ntool: nvim-test\ncategory: test\nconfidence: high\ncontext: {before: 0, after: 3}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\.\\.\\.\\S*\\.lua:[0-9]+: \\S'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(Expected|Actual|Observed)\\b'\n    loop: true\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?  \\|'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "nvim-test-failure-list-entry",
+   "path": "nvim-test/nvim-test-failure-list-entry.yaml",
+   "yaml": "# samples: neovim/neovim/39336560827-118347407101 (ubuntu asan clang functionaltest), neovim/neovim/39354801369-118407030881 (macos intel clang functionaltest), neovim/neovim/39493051453-118870913961 (linux zig build), neovim/neovim/39498802072-118891310509 (windows functional)\n# 锚: neovim 自研测试 harness (test/reporter.lua) 尾部失败清单条目\n# `FAILED  <path>.lua @ NNN: <test 名>` — 源码 L191 summary_label('FAILED  ')\n# + L295-298 get_file_line (`fpath(src) .. ' @ ' .. fpath(line) .. ': '`, cyan ANSI\n# 包裹) + L330 `('%s %s\\n')`。` @ ` 行列号后置是 harness 结构签名 (与 busted-htest\n# 的 `:NNN` 直连形态正交)。断言详情由 nvim-test-assertion-detail 覆盖, 本规则只兜清单条目。\n# 原由 luaunit-failed-test-entry 的 ` @ ` 容错分支误辖 (tool id luaunit 属误归属,\n# 2026-10-22 审计拆分: 该规则 `:` 分支归 busted-htest-failed-test-entry)。\nid: nvim-test-failure-list-entry\ntitle: 'nvim 测试失败清单条目 (FAILED path.lua @ N: <test 名>)'\ntool: nvim-test\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)* ?FAILED {1,2}(?:\\x1b\\[[0-9;]*m)* ?(?:\\x1b\\[[0-9;]*m)*\\S*\\.lua(?:\\x1b\\[[0-9;]*m)* @ (?:\\x1b\\[[0-9;]*m)*[0-9]+(?:\\x1b\\[[0-9;]*m)*: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "nvim-test-run-fail",
+   "path": "nvim-test/nvim-test-run-fail.yaml",
+   "yaml": "# samples: neovim/neovim/39306452241-118244679306, neovim/neovim/39336560827-118347407101, neovim/neovim/39354801369-118407030881, neovim/neovim/39493051453-118870913961, neovim/neovim/39498802072-118891310509\n# neovim 自研测试 harness (test/reporter.lua) 的内联失败行: `RUN      T<N> <desc>: <ms> ms FAIL`\n# — RUN + T 编号 + `: N.NN ms ` 计时 + 终态词 (FAIL 断言失败 / ERR error 状态) 四重结构;\n# 通过用例 (OK/SKIP) 不开块。context.after=6 带出紧随的失败描述头 (assert 消息 /\n# Expected:/Actual: 值段)。尾部失败清单 (`FAILED  ...lua @ N:`) 由 nvim-test-failure-list-entry 覆盖。\nid: nvim-test-run-fail\ntitle: 'nvim 测试内联失败行 (RUN T<n> desc: N ms FAIL/ERR)'\ntool: nvim-test\ncategory: test\nconfidence: high\ncontext: {before: 0, after: 6}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?RUN +T[0-9]+ .+: [0-9.]+ ms (?:\\x1b\\[[0-9;]*m)*(FAIL|ERR)\\b'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "oxlint-found-errors",
+   "path": "oxlint/oxlint-found-errors.yaml",
+   "yaml": "# samples: vitejs/vite/39524631125-118976293474, honojs/hono/37456235545-112244434930\n# oxlint 汇总行 `Found N warnings and M errors.` — 要求 M≥1 (错误存在才非零退出);\n# 全绿/仅警告运行打印 `Found 0 warnings and 0 errors.` (vite 成功样本实测) 被排除。\n# 逐条违例行经 GHA problem matcher 包装为 `##[error]<path>:<line>:<col>: <msg>` (vite 实测 614 条),\n# 已由 github-actions-error-annotation 安全网覆盖, 本规则补定量汇总锚。\nid: oxlint-found-errors\ntitle: oxlint 汇总行 (Found N warnings and M errors, M≥1)\ntool: oxlint\ncategory: lint\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Found [0-9]+ warnings? and [1-9][0-9]* errors?\\.'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "phpstan-error-table",
+   "path": "phpstan/phpstan-error-table.yaml",
+   "yaml": "# samples: composer/composer/39496988325-118884484709 (PHPStan 7.4), composer/composer/39495983394-118881023283\n# 锚: PHPStan 逐文件错误表头 `  Line   src/.../File.php` — `Line` 列头 + php 路径\n# 是表格结构签名; 扩展: 行号行 `  222  msg` + 缩进续行 (贪心), 表尾分隔线\n# ` ------ `(单空格起) 与空行闭块。\n# 定位粒度补充: 收尾汇总见 phpstan-found-errors; 注解在场时文件/行细节在\n# ##[error] 注解里, 本规则给注解缺席场景 (非 action 化的本地/phpstan-src 输出)\n# 的逐文件定位。\nid: phpstan-error-table\ntitle: 'PHPStan 逐文件错误表 (  Line   src/.../File.php)'\ntool: phpstan\ncategory: typecheck\nconfidence: medium\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)* +Line +\\S+\\.php'\n  - regex: '^ +[0-9]+ +\\S'\n  - regex: '^ {2,}\\S'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "phpstan-found-errors",
+   "path": "phpstan/phpstan-found-errors.yaml",
+   "yaml": "# samples: composer/composer/39496988325-118884484709 (PHPStan 7.4), composer/composer/39495983394-118881023283, symfony/symfony/39467978697-118784279004\n# 锚: PHPStan 运行收尾 ` [ERROR] Found N errors` — 方括号风格 + 措辞双签名;\n# 与成功收尾 ` [OK] No errors` 正交 (success 样本零命中)。\n# category: PHPStan 是独立静态类型检查器, 与 mypy 同族 → typecheck。\nid: phpstan-found-errors\ntitle: 'PHPStan 失败汇总 ([ERROR] Found N errors)'\ntool: phpstan\ncategory: typecheck\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)* ?\\[ERROR\\] Found [0-9]+ errors'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "phpunit-failed-asserting",
+   "path": "phpunit/phpunit-failed-asserting.yaml",
+   "yaml": "# samples: laravel/framework/39377154561-118477762443 (PHP 8.3 PHPUnit 12.5.8), sebastianbergmann/phpunit/38523291692-115718285881 (End-to-End windows)\n# 锚: PHPUnit 断言失败措辞 `Failed asserting ...` — PHPUnit 结构签名, 跨大版本稳定\n# (laravel 12.x 与 phpunit e2e 同形)。锚不落在 `N) Class::method` 条目行上\n# (PR #11 教训: `N) ` 跨栈同形, mocha 标题可含 ::); context.before=3 把\n# `N) <Class::test>` 条目头与断言前消息带进输出。\nid: phpunit-failed-asserting\ntitle: 'PHPUnit 断言失败 (Failed asserting ...)'\ntool: phpunit\ncategory: test\nconfidence: high\ncontext: {before: 3, after: 2}\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Failed asserting'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "phpunit-failures-banner",
+   "path": "phpunit/phpunit-failures-banner.yaml",
+   "yaml": "# samples: laravel/framework/39377154561-118477762443, laravel/framework/39202873460-117899384537, symfony/symfony/39390467343-118520477185\n# 锚: PHPUnit 结果横幅 `FAILURES!` / `ERRORS!` (行尾 $ 收紧, 整行就是横幅);\n# WARNINGS! 不入锚 (failOnWarning=false 时告警横幅可在 success job 出现, FP 面)。\n# context.after=1 把 `Tests: N, Assertions: M, Failures: K...` 汇总行带进输出。\nid: phpunit-failures-banner\ntitle: 'PHPUnit 结果横幅 (FAILURES! / ERRORS!)'\ntool: phpunit\ncategory: test\nconfidence: high\ncontext: {before: 0, after: 1}\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*(?:FAILURES|ERRORS)!\\r?$'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "pip-install-error",
+   "path": "pip/pip-install-error.yaml",
+   "yaml": "# samples: openai/openai-python/39372368549-118462861608\n# 锚: pip 安装失败错误 `ERROR: Could not find a version that satisfies the requirement ...`\n# / `ERROR: Could not install packages ...` — pip 自有错误文案前缀 (大写 ERROR: + Could not 组合);\n# 单行块; pip 进度行 (Collecting/Downloading) 由 pip-install-progress-noise 压制。\nid: pip-install-error\ntitle: 'pip 安装失败 (ERROR: Could not find/install)'\ntool: pip\ncategory: deps\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?ERROR: Could not (find|install)'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "pip-install-progress-noise",
+   "path": "pip/pip-install-progress-noise.yaml",
+   "yaml": "# samples: django/django/39453298917-118733504811, fastapi/fastapi/39499348483-118892572124, mitmproxy/mitmproxy/39538470181-119020494074\n# pip 安装进度海 (Collecting/Downloading/Using cached/Requirement already satisfied) — 高频噪音;\n# 缩进容忍 (Downloading/Using cached 带两空格缩进); 单行 noise 块。\n# Successfully installed 行刻意保留 (每安装一次仅一行, 是环境快照信息)。\nid: pip-install-progress-noise\ntitle: pip 安装进度噪音行 (Collecting/Downloading/Using cached)\ntool: pip\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\s*(Collecting|Downloading|Using cached) \\S+'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Requirement already satisfied'\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "playwright-assert-failed",
+   "path": "playwright/playwright-assert-failed.yaml",
+   "yaml": "# samples: sst/opencode/38847754130-116802135105\n# playwright 断言失败详情块: 4 空格缩进 `Error: ...` 锚。Locator/Expected/Received/Timeout\n# 与 Call log 之间隔空行, 状态机不跨空行 — 用 context.after=6 带出期望/实际值 (仅扩输出)。\nid: playwright-assert-failed\ntitle: 'playwright 断言失败 (4 缩进 Error: 详情块)'\ntool: playwright\ncategory: test\nconfidence: high\ncontext: {before: 0, after: 6}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\s{4}Error: '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\s{4,}\\S'\n    loop: true\nkind: signal\n"
+  },
+  {
+   "id": "playwright-failed-test-header",
+   "path": "playwright/playwright-failed-test-header.yaml",
+   "yaml": "# samples: sst/opencode/38847754130-116802135105\n# playwright 失败用例编号头 (`  18) [components] › path:line:col › 用例名`)。\n# 容忍行首 ANSI 光标控制序列 (ESC[1A ESC[2K 刷新残影) 与 0-4 空格缩进; 单行块。\nid: playwright-failed-test-header\ntitle: playwright 失败用例编号头 (N) [browser] › spec:line:col › name)\ntool: playwright\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*[A-Za-z])*\\s*[0-9]+\\) \\[[^\\]]+\\] ›'\nkind: signal\n"
+  },
+  {
+   "id": "playwright-progress-noise",
+   "path": "playwright/playwright-progress-noise.yaml",
+   "yaml": "# samples: sst/opencode/38847754130-116802135105\n# playwright 进度刷新行 (ESC[1A ESC[2K 后跟 [n/N] 计数) — 终端残影噪音, 单行 noise 块。\nid: playwright-progress-noise\ntitle: playwright 进度刷新噪音行 (ESC[1A ESC[2K [n/N])\ntool: playwright\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\x1b\\[1A\\x1b\\[2K\\[[0-9]+/[0-9]+\\]'\nkind: noise\n"
+  },
+  {
+   "id": "plenary-test-fail",
+   "path": "plenary/plenary-test-fail.yaml",
+   "yaml": "# samples: nvim-telescope/telescope.nvim/38230441746-114748305210 (unit tests windows)\n# 锚: plenary.nvim 测试条目失败标记 `Fail\\t||\\t<test 名>` — 红 ANSI 包 `Fail`\n# (裸词, Success 条目是 `Success\\t||`) + TAB-管道结构是 plenary 表格签名;\n# context.after=3 带随后的断言细节 (`Expected objects to be...` / Passed in 表)。\nid: plenary-test-fail\ntitle: 'plenary 测试失败条目 (Fail || <test 名>)'\ntool: plenary\ncategory: test\nconfidence: high\ncontext: {before: 0, after: 3}\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*Fail(?:\\x1b\\[[0-9;]*m)*\\t\\|\\|\\t'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "plenary-tests-failed",
+   "path": "plenary/plenary-tests-failed.yaml",
+   "yaml": "# samples: nvim-telescope/telescope.nvim/38230441746-114748305210 (unit tests windows)\n# 锚: plenary 测试运行收尾横幅 `Tests Failed. Exit: N` — 措辞+冒号结构签名;\n# 单行块, context.before=1 带紧邻的 `Failed : N` 计数行。\nid: plenary-tests-failed\ntitle: 'plenary 测试收尾横幅 (Tests Failed. Exit: N)'\ntool: plenary\ncategory: test\nconfidence: high\ncontext: {before: 1, after: 0}\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*Tests Failed\\. Exit: [0-9]+\\t?\\r?$'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "pnpm-elifecycle-exit",
+   "path": "pnpm/pnpm-elifecycle-exit.yaml",
+   "yaml": "# samples: sveltejs/svelte/38669257972-116208220995, honojs/hono/37464610017-112272396418, withastro/astro/39252499883-118061339316\n# pnpm 生命周期脚本非零退出横幅 (ELIFECYCLE) — 与 bun-script-exit-fail 对偶的 pnpm 侧形态:\n# ① `[ELIFECYCLE] Command failed with exit code N.` (v10+ 方括号形态, plain 或 ANSI 色码括号);\n# ② ` ELIFECYCLE Test failed. See above for more details.` (全角空格 U+2003 填充形态, \\s 覆盖)。\n# 容忍 turbo 任务标签前缀 (`astro:test: `); 具体失败原因由就近的工具规则提取, A5 输出层合并。\nid: pnpm-elifecycle-exit\ntitle: pnpm 生命周期退出失败 ([ELIFECYCLE] Command/Test failed)\ntool: pnpm\ncategory: unknown\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\S+: )?(?:\\x1b\\[[0-9;]*m)*\\s*\\[?(?:\\x1b\\[[0-9;]*m)*\\s*ELIFECYCLE(?:\\x1b\\[[0-9;]*m)*\\]?(?:\\x1b\\[[0-9;]*m)*\\s*(?:\\x1b\\[[0-9;]*m)*\\s*(Command failed with exit code|Test failed)'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "pnpm-error-tree",
+   "path": "pnpm/pnpm-error-tree.yaml",
+   "yaml": "# samples: vuejs/core/39402831600-118561495004, vuejs/core/39402831768-118561497229\n# pnpm 错误码树根行 `Error: ERR_PNPM_<CODE>` + 尾随 clap 风格错误树 (实测 OUTDATED_LOCKFILE:\n# `  × installing dependencies` / `  ╰─▶ Cannot install with \"frozen-lockfile\" ...` / 缩进明细)。\n# 扩展消费「空行或缩进≥2」的树体行 (含 GHA 时间戳前缀容忍), 树体终结于首个非缩进内容行。\nid: pnpm-error-tree\ntitle: 'pnpm 错误码树 (Error: ERR_PNPM_* + ×/╰─▶ 明细树)'\ntool: pnpm\ncategory: deps\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Error: ERR_PNPM_[A-Z_]+$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z)?( *$| {2,}\\S.*)'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "praktika-job-fail",
+   "path": "praktika/praktika-job-fail.yaml",
+   "yaml": "# samples: ClickHouse/ClickHouse/39565674125-119108046165, ClickHouse/ClickHouse/39574722932-119138071991, ClickHouse/ClickHouse/39570391828-119133904324\n# praktika (ClickHouse CI 框架) job 失败树: 无缩进主行 `[<ts>] Fail [<job>]` 逐级嵌套\n# (`  Fail [Tests]` → `    Fail [<test>]` → `      | Reason: ...` / `| Code: N. DB::Exception: ...`)。\n# ext loop: 任意 praktika `[<ts>] ` 前缀行 (计数行/嵌套 Fail/原因行/`++++` 收尾线一并贪入),\n# 遇无前缀行 (空行) 即闭块 — 有界; 无前缀 wrap 续行丢失可接受 (签名已定位于锚行, 续文可 read_around)。\n# 实测 ClickHouse 全部 8 失败样本命中、3 成功样本零命中。\nid: praktika-job-fail\ntitle: 'praktika job 失败树 ([ts] Fail [job] + Failures 计数 + 嵌套 Fail/Reason/Exception)'\ntool: praktika\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\\] Fail \\['\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\\] '\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "praktika-run-failed",
+   "path": "praktika/praktika-run-failed.yaml",
+   "yaml": "# samples: ClickHouse/ClickHouse/39565674125-119108046165, ClickHouse/ClickHouse/39574846466-119137704304, ClickHouse/ClickHouse/39565344262-119106906252\n# praktika run 脚本终止签名: `ERROR: Run failed with exit code [N]` — job 级失败的单行兜底锚,\n# 与 praktika-job-fail (失败树) 常相邻合并为一块; 树缺失时 (如纯 hook 失败) 此行仍是可靠失败证据。\nid: praktika-run-failed\ntitle: 'praktika run 终止 (ERROR: Run failed with exit code [N])'\ntool: praktika\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\\] ERROR: Run failed with exit code \\[[0-9]+\\]'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "prettier-check-drift",
+   "path": "prettier/prettier-check-drift.yaml",
+   "yaml": "# samples: sveltejs/svelte/38975953734-117225328024\n# prettier --check 漂移判定行 `[warn] Code style issues found in the above file. Run Prettier to fix.`\n# (多文件形态为 `... found in N files.`) — 判定行是唯一可靠锚; 待格式化文件清单行 `[warn] <path>`\n# 形态过宽 (rollup 弃用告警同为 [warn] 前缀, playwright 实测), 不做锚, 由 context.before 带回。\nid: prettier-check-drift\ntitle: prettier --check 漂移判定 (Code style issues found)\ntool: prettier\ncategory: fmt\nconfidence: high\ncontext: {before: 6, after: 0}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\[warn\\] Code style issues found in '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "pyright-error-summary",
+   "path": "pyright/pyright-error-summary.yaml",
+   "yaml": "# samples: pydantic/pydantic/39394205230-118532773813, pandas-dev/pandas/39531298631-118997555493\n# 锚: pyright 运行汇总 `N errors, M warnings, K informations` — 错误数限定非零\n# ([1-9][0-9]*) — 0 errors 形态会出现在通过子检查 (实测同一 job 内 0-error/1-error 两行并存),\n# 零错误汇总不是失败证据; 单复数均容忍 (1 error / 2 errors / 1 warning)。\nid: pyright-error-summary\ntitle: pyright 失败汇总 (N errors, M warnings, K informations, N>0)\ntool: pyright\ncategory: typecheck\nconfidence: medium\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?[1-9][0-9]* errors?, [0-9]+ warnings?, [0-9]+ informations$'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "pyright-type-error",
+   "path": "pyright/pyright-type-error.yaml",
+   "yaml": "# samples: pydantic/pydantic/39394205230-118532773813, pandas-dev/pandas/39531298631-118997555493\n# 锚: pyright/basedpyright 诊断行 `<path>.py:<line>:<col> - error: <msg>`\n# — 行列号与 error 关键字常被 ANSI 色码包裹 (实测 `...py:\\x1b[33m60\\x1b[39m:\\x1b[33m16\\x1b[39m - \\x1b[31merror`),\n# 依 rustc 同款容忍; 缩进容忍 (basedpyright 输出 2 空格缩进);\n# 单行块, 前一行文件头路径由 context.before 带出。\nid: pyright-type-error\ntitle: pyright/basedpyright 类型诊断行 (x.py:NN:CC - error, ANSI 容忍)\ntool: pyright\ncategory: typecheck\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\s*\\S+\\.py:(?:\\x1b\\[[0-9;]*m)?[0-9]+(?:\\x1b\\[[0-9;]*m)?:(?:\\x1b\\[[0-9;]*m)?[0-9]+(?:\\x1b\\[[0-9;]*m)? - (?:\\x1b\\[[0-9;]*m)*error'\ncontext: {before: 1}\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "pytest-failures-section",
+   "path": "pytest/pytest-failures-section.yaml",
+   "yaml": "# samples: fastapi/fastapi/39499348483-118892572124, pytest-dev/pytest/39378379197-118481682475, pandas-dev/pandas/39502724904-118903970251, scikit-learn/scikit-learn/39534784183-119008953873\n# 锚: pytest 失败/错误段头 `==== FAILURES ====` / `==== ERRORS ====` (等号带长度不定位, 双端 =+ 包裹);\n# 段体内是自由文本 traceback (无结构形态), 不做扩展, context.after 带出用例分隔线与 [gwN] 环境行。\nid: pytest-failures-section\ntitle: pytest 失败/错误段头 (==== FAILURES/ERRORS ====)\ntool: pytest\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?=+ (FAILURES|ERRORS) =+$'\ncontext: {after: 2}\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "pytest-progress-noise",
+   "path": "pytest/pytest-progress-noise.yaml",
+   "yaml": "# samples: django/django/39453298917-118733504811, fastapi/fastapi/39246541360-118039796615\n# pytest 非 verbose 模式的点号进度海 (`....sss... [ 12%]`) — 高频噪音;\n# 字符集限定 [.s] (跳过 s), 刻意排除 F/E/x/X (失败/错误/xfail/xpass 标记是证据不得剔);\n# 长度 >=8 防误吞正文里的省略号; 尾部可选 ` [ N%]` 百分比 (xdist/progress 形态); 引擎 A0 已剥 \\r。\nid: pytest-progress-noise\ntitle: pytest 点号进度噪音行 (.... [ N%])\ntool: pytest\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?[.s]{8,}( \\[ *[0-9]+%\\])?$'\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "pytest-test-failed",
+   "path": "pytest/pytest-test-failed.yaml",
+   "yaml": "# samples: fastapi/fastapi/39499348483-118892572124, fastapi/fastapi/39246541360-118039796615, pandas-dev/pandas/39467032326-118780990459\n# 锚: pytest 失败用例汇总行 `FAILED <nodeid>` (nodeid 形如 tests/x.py::test_y[params],\n# :: 双冒号限定是 pytest nodeid 的结构签名), 尾随 `- <异常>` 不入锚 (锚只取签名前缀)。\n# 单行块; 失败段头部由 pytest-failures-section 覆盖, 本规则锚定逐用例定位行。\nid: pytest-test-failed\ntitle: pytest 失败用例行 (FAILED tests/x.py::test_y)\ntool: pytest\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*FAILED \\S+::\\S+'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "python-logging-critical-message",
+   "path": "python-logging/python-logging-critical-message.yaml",
+   "yaml": "# samples: phpstan/phpstan/39434422708-118667559649 (Check for broken links), phpstan/phpstan/39478938543-118822123367, phpstan/phpstan/39483898548-118839238414\n# 锚: python logging 默认格式 `%(levelname)s:%(name)s:%(message)s` 的 CRITICAL 级行\n# `CRITICAL:<logger.name>:<message>` — 紧跟冒号的 dotted logger 限定名 (首字符\n# 允许下划线, `__main__` 实测形态) 是结构签名。\n# FN 闭环 (诊断 §3): broken-links 爬虫 (deadseeker) 在 docker 内发现死链后以\n# `CRITICAL:__main__:::error ::Found some broken links!` 收尾并退出非零, 无\n# ##[error] 注解 — 此收尾行是该 job 族的单行失败判词。\n# 取舍记录: 同格式的 ERROR:<logger>: 行 (deadseeker 逐死链刷屏, 单样本 1000+ 行)\n# 曾入规则集, 因逐行提取使 phpstan 仓压缩率双测退化 >2% (l0 门禁红线) 而退役 —\n# CRITICAL 收尾行以 3 行总量等效闭环 (每失败样本恰 1 行, 全语料 3 行零 FP);\n# ERROR 级行留给未来引擎支持「级联截断」(每规则首 N fragment) 时再引入。\n# 多因混合 (死链/超时/HTTP 状态) → category unknown (宁缺勿错)。\nid: python-logging-critical-message\ntitle: 'python-logging CRITICAL 行 (CRITICAL:<logger>: 默认格式)'\ntool: python-logging\ncategory: unknown\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?CRITICAL:[a-zA-Z_][a-zA-Z0-9_.]*:'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "python-traceback-uncaught-exception",
+   "path": "python-traceback/python-traceback-uncaught-exception.yaml",
+   "yaml": "# samples: erlang/otp/2026-10-22/39770929558-119798154584-finished-tests (FN 闭环, sweep run 39797013222)\n#   同锚 TP 佐证 (本语料 34 样本命中): laravel/framework, semgrep/semgrep, django/django,\n#   mockito/mockito, opencv/opencv, bitcoin/bitcoin, eslint/eslint 等\n# Python 未捕获异常 traceback 的尾行 (异常类名 + 消息) — 解释器崩溃的收束签名:\n#   FileNotFoundError: [Errno 2] No such file or directory: 'artifacts/Event File/event.json'\n#   AssertionError: 2 != 1 : Found 2 instances of '...' (expected 1) ...\n# 锚选择依据 (FP 免疫优先于召回, 三重收窄, 全语料成功侧实测 0 命中):\n#   1. 裸类名 (无点分包前缀) — Java 全限定名 (jakarta.jms.JMSException) / Haskell 模块名\n#      (Hadolint.Formatter.ParseError) 免疫 (spring-boot/hadolint 成功样本实测);\n#   2. 必须带非空消息 (\\`: .+\\`) — 空消息行 (\\`java.lang.Exception: \\`) 与裸类名行免疫;\n#   3. 类名以 Error|Exception 结尾 — 成功侧被捕获打印的预期异常 (pydantic 的\n#      StopIteration / coverage_comment.github.NoArtifact) 免疫。\n# 点分全限定形态 (django.core...CommandError / subprocess.CalledProcessError) 刻意不覆盖 —\n# 与 Java 预期内异常日志 (spring-boot 成功样本) 同构无法判别, 该形态样本均已有其他规则覆盖。\n# 单行锚 + context.before 7 带出 traceback 主体 (File/源码行) — 状态机不扩展 (防贪心吞段),\n# 证据完整性由呈现层 context 兑现。category 跨因 (assert/infra/deps) → unknown (宁缺勿错)。\nid: python-traceback-uncaught-exception\ntitle: 'Python 未捕获异常 traceback 尾行 (裸异常类名 + 消息)'\ntool: python-traceback\ncategory: unknown\nconfidence: medium\ncontext: {before: 7, after: 0}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?[A-Za-z_][A-Za-z0-9_]*(Error|Exception): .+$'\nkind: signal\nattribution:\n  contributor: 'LuoChen <luochen1990@gmail.com> (agent-drafted, fn-responder/glm-5.3)'\n  generated-by: {harness: fn-responder, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "python-unittest-fail",
+   "path": "python-unittest/python-unittest-fail.yaml",
+   "yaml": "# samples: django/django/39453298917-118733504811\n# 锚: unittest (含 django test runner) 失败证据双形态 — verbose 逐用例行\n# `FAIL: test_x (module.Class.test_x)` / `ERROR: test_x (...)` 与运行汇总\n# `FAILED (failures=N, ...)`;\n# 单行块; `test_` 前缀 + 括号收尾是 unittest verbose 结构签名, 成功样本零命中。\nid: python-unittest-fail\ntitle: 'unittest 失败行 (FAIL/ERROR: test_x 与 FAILED (failures=) 汇总)'\ntool: python-unittest\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?((FAIL|ERROR): test_\\S+ \\(|FAILED \\(failures=)'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "python-unittest-progress-noise",
+   "path": "python-unittest/python-unittest-progress-noise.yaml",
+   "yaml": "# samples: django/django/39453298917-118733504811\n# unittest verbose 模式逐用例进度海 (`<test> ... ok`, django 全量跑 2 万测试 = 2 万行) — 高频噪音;\n# 行尾限定 `... ok|skipped|expected failure`, 刻意排除 `... FAILED`/`... ERROR` 失败标记;\n# 单行 noise 块。\nid: python-unittest-progress-noise\ntitle: unittest verbose 进度噪音行 (test ... ok)\ntool: python-unittest\nconfidence: low\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\S.*\\.\\.\\. (ok|skipped|expected failure)$'\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "redis-server-bugreport",
+   "path": "redis-server/redis-server-bugreport.yaml",
+   "yaml": "# samples: redis/redis/39272658178-118128749433, redis/redis/39272657901-118128747522\n# redis-server 崩溃报告头: `=== REDIS BUG REPORT START: Cut & paste starting from here ===`\n# + 三行崩溃签名 (`<pid>:M <date> # Redis <ver> crashed by signal: N, si_code: N` /\n# `# Accessing address: ...` / `# Crashed running the instruction at: ...`)。\n# 报告主体 (STACK TRACE/REGISTERS/hexdump) 千行级 — 刻意只取 4 行有界签名, 空行即闭块;\n# 完整 dump 由消费方 read_around 按坐标展开。\nid: redis-server-bugreport\ntitle: 'redis-server 崩溃报告头 (BUG REPORT START + crashed by signal 签名三行)'\ntool: redis-server\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?=== REDIS BUG REPORT START'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?[0-9]+:[MXCS] .* # Redis .+ crashed by signal: [0-9]+'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?[0-9]+:[MXCS] .* # Accessing address: '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?[0-9]+:[MXCS] .* # Crashed running the instruction at: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "redis-test-err",
+   "path": "redis-test/redis-test-err.yaml",
+   "yaml": "# samples: redis/redis/39412931925-118594896316, redis/redis/39272658178-118128749433, redis/redis/39346213296-118379326241\n# redis Tcl 测试框架 (tests/testlib) 逐用例失败行: `[err]: <用例名> in <file.tcl>`\n# (live 段) 与汇总节重放 `*** [err]: <用例名>` (尾段) — 同锚可选 `*** ` 前缀一并覆盖。\n# 断言详情行以 `Expected '...' to (be equal to|match|...)` 开头 (assert_* 家族统一前缀), loop 吞多行详情。\n# 通过形态是 `[ok]: `, 与 `[err]: ` 字符级不相交; 成功语料 0 命中。\nid: redis-test-err\ntitle: 'redis 测试用例失败 ([err]: name in file.tcl / *** [err]: 重放 + Expected 断言详情)'\ntool: redis-test\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\*\\*\\* )?\\[err\\]: '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Expected ''.+'' to '\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "redis-test-exception",
+   "path": "redis-test/redis-test-exception.yaml",
+   "yaml": "# samples: redis/redis/39272658178-118128749433, redis/redis/39519806722-118960586912, redis/redis/39272657901-118128747522\n# redis 测试框架 Tcl harness 异常: `[exception]: Executing test client: <错因>` (客户端执行中断言/IO 错)\n# 与 `[exception]: Test client <sock> exited unexpectedly -- last client state: ...` (客户端崩溃, centos 样本)。\n# 后随 `Killing still running Redis server <pid>` 清理行; 崩溃样本 exception 前是千行级 client state 命令\n# dump (HSET/HGET 序列) — 同因级联形态, 刻意不向前扩展 (repeat-collapse 由引擎特性另行解决, 本规则只取签名)。\nid: redis-test-exception\ntitle: 'redis 测试客户端异常 ([exception]: Executing/exit unexpectedly + Killing server)'\ntool: redis-test\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\[exception\\]: '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Killing still running Redis server [0-9]+'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "rspec-failure-error",
+   "path": "rspec/rspec-failure-error.yaml",
+   "yaml": "# samples: rubocop/rubocop/38947895623-117131566177 (Spec ubuntu), rubocop/rubocop/38948799907-117134632574 (Prism), Homebrew/brew/39275227649-118137668739 (tests online)\n# 锚: rspec 失败条目内的断言源行 `Failure/Error: <expr>` — rspec 3 结构签名。\n# 缩进两态并存: rubocop (test-queue 包装) 缩进 5 空格, Homebrew 无缩进, 锚容忍\n# 任意前导空格 (与 mocha 的 `N) title` 条目形态正交 — 见 PR #11 教训, 锚不落在\n# `N)` 形态上)。扩展各取一行: 断言详情行 (expected/got) + 回溯首帧 (spec 定位);\n# 回迹不贪心 — 框架帧噪音为主, 且高失败量 job (Homebrew 单样本 78 失败)\n# 全回迹吞行会推高压缩率 (l0 双测 >2% 红线实测); context 不取 — `  N) <test 名>`\n# 条目头 ×2 行在高失败量 job 同样推高清单 (测试名经 ##[error] 注解与\n# rspec-rerun-command 双通道在场, 不损失可达性)。\nid: rspec-failure-error\ntitle: 'rspec 失败断言源行 (Failure/Error:)'\ntool: rspec\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)* *Failure/Error:'\n  - regex: '^\\s+\\S'\n  - regex: '^\\s*# '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "rspec-rerun-command",
+   "path": "rspec/rspec-rerun-command.yaml",
+   "yaml": "# samples: rubocop/rubocop/38947895623-117131566177, rubocop/rubocop/38948799907-117134632574, fastlane/fastlane/39131167114-117687563053\n# 锚: rspec 重跑命令行 `rspec ./spec/path.rb[:line|[ids]] # <test 名>` —\n# \"Failed examples\" 段的逐失败定位行, ` # ` 尾缀 (test 名复述) 是与裸命令行\n# `rspec ./spec` (group 回显, 无 # 尾缀) 的区分签名; 容忍前导空格\n# (fastlane 并行 worker 输出缩进 2 格)。\nid: rspec-rerun-command\ntitle: 'rspec 失败重跑命令行 (rspec ./spec/x.rb:NN # 名)'\ntool: rspec\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)* *rspec \\./\\S+ # '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "rust-libtest-failed",
+   "path": "rust/rust-libtest-failed.yaml",
+   "yaml": "# samples: niri-wm/niri/37725735250-113143344875\n# libtest 单测失败行 (`test <name> ... FAILED`, 名字无空格)。行首 test 限定 + 行尾 FAILED 限定,\n# 双端锚定避免误吞; 单行块, 相邻多失败行由输出层 A5 合并。\nid: rust-libtest-failed\ntitle: libtest 单测失败行 (test ... FAILED)\ntool: rust\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?test \\S+( \\S+)* \\.\\.\\. FAILED$'\nkind: signal\n"
+  },
+  {
+   "id": "rust-test-panic",
+   "path": "rust/rust-test-panic.yaml",
+   "yaml": "# samples: niri-wm/niri/37725735250-113143344875\n# Rust 运行时 panic 头 (thread '<name>' (id)? panicked at <loc>:)。消息行无统一结构,\n# 不用扩展吞行 — 单行块 + context.after=2 带出 panic 消息行与 note 行 (仅扩输出, 不扩状态机)。\n# intent 降级 warning: #[should_panic] 测试的 panic 是预期通过机制, 行级正则无法区分\n# (RE2 无 lookahead / 状态机无后视取消), failure intent 在 success 作业命中即 FP\n# (公开语料 15 份 success 样本误报 2 份)。job 级失败证据由 rust-libtest-failed 与\n# github-actions-error-annotation 兜底, panic 精确定位以 warning 块保留。\nid: rust-test-panic\ntitle: Rust 运行时 panic (thread panicked at)\ntool: rust\ncategory: test\nconfidence: high\nintent: warning\ncontext: {before: 0, after: 2}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?thread ''[^'']+''( \\([0-9]+\\))? panicked at '\nkind: signal\n"
+  },
+  {
+   "id": "rustc-error-tree",
+   "path": "rustc/rustc-error-tree.yaml",
+   "yaml": "# samples: niri-wm/niri/37721016710-113128410430, niri-wm/niri/35428871875-105859640064, niri-wm/niri/35428989485-105859974298, niri-wm/niri/35550165700-106183274542, niri-wm/niri/37720469238-113126703223\n# 锚: rustc 带诊断码的错误头 error[Exxxx]: (容忍 GH 日志时间戳前缀与 ANSI 色码);\n# 扩展: 单一结构性 alternation loop (-->/| gutter/行号 gutter/help:/note:/= note/... 省略行),\n# 任一行不满足结构即闭块 — 无开放 .* 吞行。\nid: rustc-error-tree\ntitle: rustc 编译错误树 (error[Exxxx] 锚 + 位置/gutter/note/help 结构扩展)\ntool: rustc\ncategory: typecheck\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*error\\[E[0-9]{4}\\](?:\\x1b\\[[0-9;]*m)*: '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\s*(?:\\x1b\\[[0-9;]*m)*--> |\\s*(?:\\x1b\\[[0-9;]*m)*\\||\\s*(?:\\x1b\\[[0-9;]*m)*\\s*[0-9]+(?:\\x1b\\[[0-9;]*m)* +(?:\\x1b\\[[0-9;]*m)*\\||\\s*(?:\\x1b\\[[0-9;]*m)*(help|note)(?:\\x1b\\[[0-9;]*m)*: |\\s*(?:\\x1b\\[[0-9;]*m)*= |(?:\\x1b\\[[0-9;]*m)*\\.\\.\\.$)'\n    loop: true\nkind: signal\n"
+  },
+  {
+   "id": "scorecard-action-error",
+   "path": "scorecard-action/scorecard-action-error.yaml",
+   "yaml": "# samples: github.com/curl/curl/2026-10-22/39817588595-119960042181-Scorecard-analysis-failure.log.gz\n# ossf/scorecard-action 失败汇总行: `scorecard had an error: <err>` — 签名为 action 自身产出\n# (scorecard-action/internal/scorecard/scorecard.go:45 fmt.Errorf(\"scorecard had an error: %w\")),\n# 错误路径唯一出口, 成功运行恒不出现 → 跨仓通用工具签名。curl/curl 样本根因是 GitHub GraphQL\n# 服务端内部错误 (B048 码, 瞬态), 但签名行恒定; 锚不限定 err 内容, API 瞬断/鉴权/解析等任何\n# scorecard 执行失败均以此行收尾 (FP 免疫优先于召回: 短语特异, 仅此错误路径打印)。\n# 语料激活说明: 触发样本已随语料翻离开当前语料 (2026-10-23 语料 8ca4ec4 无此文件, 后续\n# sweep 绿为语料翻转而非规则修复); 本规则本轮以 FP 免疫面验证, 召回面待下次 scorecard\n# 失败样本入库激活 (同 gitleaks 先落地后激活成例)。单行自足无扩展链; 前缀容忍 GHA 行\n# 时间戳 + scorecard-action Go log 标准时间头 (2026/10/22 16:51:56)。\nid: scorecard-action-error\ntitle: 'scorecard-action 分析失败 (scorecard had an error 致命行)'\ntool: scorecard-action\ncategory: infra\nintent: failure\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?([0-9]{4}/[0-9]{2}/[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} )?scorecard had an error: '\nkind: signal\nattribution:\n  contributor: 'LuoChen <2309868+luochen1990@users.noreply.github.com> (agent-drafted, fn-responder/glm-5.3)'\n  generated-by: { harness: fn-responder, model: glm-5.3 }\n  adapter-version: fn-responder-v2\n"
+  },
+  {
+   "id": "semgrep-findings",
+   "path": "semgrep/semgrep-findings.yaml",
+   "yaml": "# samples: self-provided (semgrep 1.182.1 真机运行产出, 见 PR 附样例 samples/self/semgrep-fail.log;\n#   产出命令: semgrep scan --config <rule> <target> --error; 跨版本形态与 semgrep 仓自家 e2e 快照\n#   cli/tests/default/e2e/snapshots/test_baseline/test_symlink/error.txt 逐字一致)\n#   语料激活说明: 语料清单已播种 semgrep/semgrep (projects.yaml exempt: onboarding-security),\n#   下一轮 refresh 入库后由 test-e2e-semgrep-ci 等工作流失败样本激活。\n# semgrep 扫描发现 (Findings 汇总): 锚为 Scan Summary 块的 `• Findings: N (M blocking)` 行\n#   (N>=1 门控 — 成功侧同构行恒为 `Findings: 0 (0 blocking)`), 扩展贪心吞后续 `• ` 摘要\n# bullets (Rules run / Targets scanned / ...) 与收尾行 `Ran N rule on M file: K findings.`\n# (findings 计数行是 semgrep 全版本稳定的收尾签名)。finding 明细块 (文件路径 + ❯❯❱ 规则id +\n# 源码行) 位于块后, 消费方按坐标 read_around 展开, 不整块捕获。`semgrep ci` (AppSec 平台\n# CLI) 的 Scan Summary 同构, 同被覆盖。\nid: semgrep-findings\ntitle: semgrep 扫描发现 (Findings 汇总块)\ntool: semgrep\ncategory: security\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)* *• Findings: [1-9][0-9]* \\([0-9]+ blocking\\)(?:\\x1b\\[[0-9;]*m)*$'\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)* *• (?:\\x1b\\[[0-9;]*m)*[A-Z][^\\n]*$'\n    loop: true\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*Ran [0-9]+ rules? on [0-9]+ files?: [0-9]+ findings?\\.(?:\\x1b\\[[0-9;]*m)*$'\nkind: signal\n"
+  },
+  {
+   "id": "size-limit-exceeded",
+   "path": "size-limit/size-limit-exceeded.yaml",
+   "yaml": "# samples: ant-design/ant-design/39675728845-119484955612\n# size-limit 产物体积门禁超标: `Size limit has been exceeded` — @size-limit 动作\n# core.setFailed 固定文案 (CLI 形态另有 `Package size limit has been exceeded by` 变体,\n# 前缀可选容忍)。context.before=8 带出紧邻上方的 `## size-limit report 📦` 体积对照表\n# (超标证据本体)。容忍 ##[error] 注解前缀与宿主时间戳。\nid: size-limit-exceeded\ntitle: 'size-limit 体积门禁超标 (Size limit has been exceeded + report 表)'\ntool: size-limit\ncategory: build\nconfidence: medium\ncontext: {before: 8, after: 0}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(##\\[error\\])?(Package )?Size limit has been exceeded'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "stack-structured-error",
+   "path": "stack/stack-structured-error.yaml",
+   "yaml": "# samples: commercialhaskell/stack/39519482191-118959532324, commercialhaskell/stack/39518840150-118957450604, commercialhaskell/stack/39519482264-118959532391, commercialhaskell/stack/39518840146-118957450449, commercialhaskell/stack/39516142041-118948634956\n# 锚: stack 结构化错误头 `Error: [S-<code>]` — `[S-N]` 码段是 stack 独有签名 (与 cabal `[Cabal-N]`\n# 词法面不相交)。实测码: S-6374 (构建失败, 细节 7 空格缩进: `While building ... using:` / `Process\n# exited with code: ExitFailure 1`) / S-242 (Cabal 文件解析失败, 细节缩进+col-0 混排)。扩展 =\n# `[^\\s0-9#]` 首字符约束 (时间戳行/空白行闭块, `##[error]` 注解行不吞入); S-242 细节内空白行后\n# 不追 (锚行码段+首段携带根因)。category: 多因混合 (S-6374=build / S-242=config), 按打标纪律 →\n# unknown。\nid: stack-structured-error\ntitle: 'stack 结构化错误头 (Error: [S-xxxx] + 缩进细节)'\ntool: stack\ncategory: unknown\nintent: failure\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Error: \\[S-[0-9]+\\]'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\s*[^\\s0-9#]'\n    loop: true\nkind: signal\nattribution:\n  contributor: lc (agent-drafted, opencode/GLM)\n  generated-by: { harness: opencode, model: glm-5.3 }\n  adapter-version: p3-wave1\n"
+  },
+  {
+   "id": "swift-build-error",
+   "path": "swift-build/swift-build-error.yaml",
+   "yaml": "# samples: vapor/vapor/39233474673-117996812921 (unit tests musl), swiftlang/swift-syntax/39357947946-118417040953\n# 锚: swift 构建驱动失败行 — 主体词限定 SwiftCompile / emit-module / frontend\n# (swift driver 已知子命令族) 或收尾 `error: Build failed` (措辞精确匹配)。\n# 主体词枚举是防跨工具误吸的关键: 泛化 `error: .* failed with exit code` 会吸进\n# just 的 `Recipe X failed`、nix 的 `builder for ... failed`、zig 的\n# `the following build command failed` (语料实测)。\nid: swift-build-error\ntitle: 'swift 构建驱动失败 (error: SwiftCompile/emit-module ... / Build failed)'\ntool: swift-build\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*error: ((?:SwiftCompile|emit-module|frontend) \\S.* failed with (?:a nonzero )?exit code|Build failed\\r?$)'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "swift-testing-test-failed",
+   "path": "swift-testing/swift-testing-test-failed.yaml",
+   "yaml": "# samples: vapor/vapor/39277912867-118147321868 (package-traits)\n# 锚: swift-testing 失败条目 `✘ Test \"...\" recorded an issue at File.swift:L:C: msg`\n# 与 `✘ Test \"...\" failed after N.N seconds with N issue.` — ✘ 前缀是结果标记\n# (✔ passed / ◇ started / ━ known issue 正交; known issue 是预期失败形态,\n# 不入失败规则 — ━ 不在锚内)。\nid: swift-testing-test-failed\ntitle: 'swift-testing 失败条目 (✘ Test \"...\" recorded an issue / failed after)'\ntool: swift-testing\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*✘ Test \".*\" (?:recorded an issue|failed after)'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "swiftc-compile-error",
+   "path": "swiftc/swiftc-compile-error.yaml",
+   "yaml": "# samples: Alamofire/Alamofire/36341365449-108681984757 (Windows 937 诊断级联, 曾致退役形态), swiftlang/swift-syntax/39357947946-118417040953, swiftlang/swift-format/35045825940-104635354516\n# 锚: swiftc 编译诊断 `path.swift:L:C: error: msg` — .swift/.sil 扩展名 + 双坐标限定,\n# 与 zig (.zig/.zon) / gcc-clang (.c/.cc/...) 诊断族按扩展名正交; 无坐标的裸\n# `error: ... exit code` 驱动失败行不吸 (swift-build-error 的管辖, 过匹配教训见其头注释)。\n# 级联不在规则层回避: 同型类型错误级联 (~2500 处/样本) 由引擎 repeat-collapse 折叠\n# (spec §3.R, 937 块实测折叠后 90 行呈现) — 本规则即该折叠能力解锁的首个受益规则族。\n# context.after=4 带源码摘录行 / caret 行 (`- error:`) / `note:` 诊断附注。\nid: swiftc-compile-error\ntitle: 'swiftc 编译诊断 (File.swift:L:C: error:)'\ntool: swiftc\ncategory: typecheck\nconfidence: high\ncontext: {before: 0, after: 4}\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*\\S+\\.(?:swift|sil):[0-9]+:[0-9]+: error: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "systemd-ci-unit-fail",
+   "path": "systemd/systemd-ci-unit-fail.yaml",
+   "yaml": "# samples: private corpus (not redistributed)\n# CI 沙箱 unit 失败三连回显: Main process exited / Failed with result / Failed to start\n# (systemd journal 转录形态, 编排层信号, 与具体检查工具无关)。\nid: systemd-ci-unit-fail\ntitle: CI 沙箱 systemd unit 失败回显\ntool: systemd\ncategory: config\nconfidence: high\npatterns:\n  - regex: '\\.service: (Main process exited, code=\\w+, status=\\d+\\S*|Failed with result .+)$'\n  - regex: '^\\s*…\\s*(Failed to start .+|Consumed .+ CPU time over .+)$'\n    loop: true\nkind: signal\n"
+  },
+  {
+   "id": "tap-test-failed",
+   "path": "tap/tap-test-failed.yaml",
+   "yaml": "# samples: nix-community/nix-direnv/31921882289-95102910877, nix-community/nix-direnv/36604486972-109529903364, libuv/libuv/39026024981-117377057802, openssl/openssl/39561279312-119092926152\n# TAP (Test Anything Protocol) 测试失败: 锚 `not ok N - <test name>` (TAP 消费端通用 —\n# bats (home-manager), perl prove (openssl), 自研 TAP runner (libuv) 同形态), 后随 `# `\n# 前缀诊断注释块 (TAP diagnostics — 断言栈/exit code/断言失败输出)。成功 run 只有\n# `ok N` 行, 不触锚; prove 的 Dubious/wstat 行为 col-0 非 # 行, 自然闭块。\nid: tap-test-failed\ntitle: TAP 测试失败 (not ok + 诊断注释)\ntool: tap\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?not ok [0-9]+ .*$'\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?# .*$'\n    loop: true\nkind: signal\n"
+  },
+  {
+   "id": "treefmt-fail-on-change",
+   "path": "treefmt/treefmt-fail-on-change.yaml",
+   "yaml": "# samples: private corpus (not redistributed)\n# treefmt 格式不幂等门禁失败: 锚为 --fail-on-change 强签名; ERRO file has changed\n# 诊断行在锚**之前**出现, 用 context.before 机械回看 (不经状态机)。\nid: treefmt-fail-on-change\ntitle: treefmt 格式不幂等 (--fail-on-change)\ntool: treefmt\ncategory: fmt\nconfidence: high\ncontext:\n  before: 4\n  after: 2\npatterns:\n  - regex: 'Error: unexpected changes detected, --fail-on-change is enabled'\nkind: signal\n"
+  },
+  {
+   "id": "trivy-misconf-failures",
+   "path": "trivy/trivy-misconf-failures.yaml",
+   "yaml": "# samples: self-provided (锚行形态取自 trivy 源码 pkg/report/table/misconfig.go Render()\n#   `Failures: %d (%s)` + 官方单测期望输出 misconfig_test.go `Failures: 1 (LOW: 0, MEDIUM: 0,\n#   HIGH: 1, CRITICAL: 0)` 逐字核对; 真机 DB 扫描因本环境 registry 不可达未产样本, PR 附源码\n#   溯源说明; 语料激活: 语料清单已播种 aquasecurity/trivy (projects.yaml exempt: onboarding-security),\n#   其 Test/K8s 集成门禁在扫描含漏洞镜像时由本规则族激活)\n# trivy 误配置检查失败 (misconfig): 锚为 per-target 汇总行 `Failures: N (SEVERITY: n, ...)`\n#   (N>=1 门控 — summarize() 仅在存在失败项时渲染该节, 成功侧无此行; severity 词表与\n# 漏洞表同源 dbTypes.SeverityNames, 大写五值+计数括号结构是 trivy 特异签名)。context.before: 1\n# 回带上一行 `Tests: N (SUCCESSES: S, FAILURES: F)` — 通过/失败双计数, 与 Failures 行互为佐证。\n# misconfig 明细表 (CheckID/Cause/...) 紧随块后, 消费方按坐标 read_around 展开。漏洞表形态见\n# 姊妹规则 trivy-vuln-found (secret 检出复用同一 Total 汇总行, 已在其射程)。\nid: trivy-misconf-failures\ntitle: trivy 误配置检查失败 (Failures 汇总行)\ntool: trivy\ncategory: security\nconfidence: high\ncontext:\n  before: 1\n  after: 0\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Failures: [1-9][0-9]* \\((?:UNKNOWN|LOW|MEDIUM|HIGH|CRITICAL): [0-9]+'\nkind: signal\n"
+  },
+  {
+   "id": "trivy-vuln-found",
+   "path": "trivy/trivy-vuln-found.yaml",
+   "yaml": "# samples: gin-gonic/gin/39525525484-118979119032, gin-gonic/gin/39442202680-118694686703\n# trivy 漏洞扫描发现 (table 输出): 锚为 per-target 汇总行 `Total: N (SEVERITY: n, ...)`\n# (N>=1 — 零发现的 target 不产该节), context.before: 2 回带 `go.mod (gomod)` 目标头与\n# `====` 下划线 — 即失败签名 (哪个 target 有几枚什么等级的漏洞); CVE 详情表同块紧随,\n# 消费方按坐标 read_around 展开, 不整表捕获 (索引+摘要, 防压缩率退化)。注意 trivy 以\n# --exit-code 1 门禁运行时该表即失败证据; 扫描报告被重定向到 artifact 的用法 (如 kafka\n# scan_jvm) 日志中无表, 不在本规则射程内 (平台注解兜底)。\nid: trivy-vuln-found\ntitle: trivy 扫描发现漏洞 (Total 汇总行)\ntool: trivy\ncategory: security\nconfidence: high\ncontext:\n  before: 2\n  after: 0\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Total: [1-9][0-9]* \\((CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN)[^)]*\\)$'\nkind: signal\n"
+  },
+  {
+   "id": "trufflehog-secret-found",
+   "path": "trufflehog/trufflehog-secret-found.yaml",
+   "yaml": "# samples: self-provided (trufflehog v3 真机运行产出的 unverified 形态 + 源码权威字符串\n#   pkg/output/plain.go L52 `✅ Found verified result 🐷🔑`; verified 分支需真实存活密钥, 无法\n#   合规自造, 以源码字符串为锚 — plain.go Print() 逐分支核对。PR 附样例 samples/self/trufflehog-fail.log)\n#   语料激活说明: 语料清单已播种 trufflesecurity/trufflehog (projects.yaml exempt: onboarding-security),\n#   下一轮 refresh 入库后由 secrets.yml (Scan for secrets, dogfood --results=verified) 失败样本激活。\n# trufflehog 检出已验证密钥: 锚 `✅ Found verified result` (plain 输出, bold green)。verified =\n#   验证器确认存活的密钥, 在任何门禁用法 (action --fail, exit 183) 下都是确定性失败证据 —\n#   intent=failure。扩展枚举吞后续明细块 (Detector Type/Raw result/Commit/File/... Title-cased\n#   `Key: value` 行 + 缓存验证标记行), 空行闭块。--json 输出无 plain 行, 不在本规则射程\n# (平台注解兜底)。\nid: trufflehog-secret-found\ntitle: trufflehog 检出已验证密钥 (Found verified result)\ntool: trufflehog\ncategory: security\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*(?:✅ )?Found verified result'\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*(?:[A-Z][A-Za-z0-9_ ]*: .+|\\(🔍 Using cached verification\\))$'\n    loop: true\nkind: signal\n"
+  },
+  {
+   "id": "trufflehog-unverified-secret",
+   "path": "trufflehog/trufflehog-unverified-secret.yaml",
+   "yaml": "# samples: self-provided (trufflehog v3 真机运行产出, 见 PR 附样例 samples/self/trufflehog-fail.log;\n#   产出命令: trufflehog git file://<fixture-repo>, fixture 内含假 github-pat, 验证器判 unverified)\n#   语料激活说明: 语料清单已播种 trufflesecurity/trufflehog (projects.yaml exempt: onboarding-security)。\n# trufflehog 检出未验证密钥: 锚 `Found unverified result 🐷🔑❓` (plain 输出, bold white)。\n#   intent=warning 而非 failure — 分寸依据: 检测器模式命中但验证未通过 (假密钥/已轮换/验证器\n#   网络不可达), 门禁是否失败取决于 --fail 与 --results 过滤 (trufflehog 官方 dogfood 用\n#   --results=verified, 本形态不红); 且 detector 测试类 job 在**通过**时也会大量产出该形态\n#   (对 fixture 假密钥的预期检出), 打 failure 会在语料成功侧制造 FP。按 spec intent 语义表:\n#   warning = 有问题倾向但非失败, 不计 FP 不参与 FN — 恰合本形态。verified 形态见姊妹规则\n#   trufflehog-secret-found (failure)。Verification issue 行 (验证器报错) 是其问题倾向的\n#   佐证, 已被扩展吞入块内。\nid: trufflehog-unverified-secret\ntitle: trufflehog 检出未验证密钥 (问题倾向)\ntool: trufflehog\ncategory: security\nintent: warning\nconfidence: medium\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*Found unverified result'\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*(?:[A-Z][A-Za-z0-9_ ]*: .+|\\(🔍 Using cached verification\\))$'\n    loop: true\nkind: signal\n"
+  },
+  {
+   "id": "tsc-diagnostic",
+   "path": "tsc/tsc-diagnostic.yaml",
+   "yaml": "# samples: vuejs/core/39402935380-118561839978, microsoft/TypeScript/39336001509-118345531603, honojs/hono/37884693356-113671941233, prettier/prettier/39251761452-118057017304\n# tsc 类型诊断行 `<路径>(行,列): error TSnnnn: <消息>` — TypeScript 编译器 (tsc/vue-tsc/tsc -b) 通用形态。\n# 路径段禁止 `(` (坐标括号是首个 `(`), 容忍 Windows 盘符冒号与 `##[error]` GHA 注解前缀\n# (vue/hono 实测 problem matcher 包装形态); 相邻多条诊断 A5 合并。\n# 大写 `error TS` 与 vitest --typecheck 的 `warning ts(...)` (astro 实测, 小写 warning) 不相交。\nid: tsc-diagnostic\ntitle: 'tsc 类型诊断行 (path(line,col): error TSnnnn: msg)'\ntool: tsc\ncategory: typecheck\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(##\\[error\\])?\\S[^(]*\\([0-9]+,[0-9]+\\): error TS[0-9]+: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "turbo-run-failed",
+   "path": "turbo/turbo-run-failed.yaml",
+   "yaml": "# samples: withastro/astro/39252499883-118061339316, tailwindlabs/tailwindcss/38803166145-116657150736, vercel/next.js/39506594449-118956933512\n# turbo (Turborepo) 任务失败三形态 (plain 与 ANSI 双形态实测):\n# ① `ERROR  run failed: command  exited (1)` — run 级终结失败 (无任务名, 双空格);\n# ② `<pkg>#<task>:  ERROR  command (<cwd>) <cmd> exited (1)` — 任务级失败横幅 (command 与 exited\n#    间可含路径/命令文本, 用 `.*` 容忍);\n# ③ `Failed:    <pkg>#<task>` — 汇总区的失败任务清单 (冒号后空格对齐)。\n# ` ERROR ` 横幅 + `command ... exited (N)` 组合双端限定, 不与 webpack `ERROR in ...` 形态相交;\n# `Failed:` 后 2+ 空格对齐 (turbo 汇总版式), 排除 elixir mix test 的 `Failed: 1 test` 单空格形态\n# (elixir 失败样本实测误吸)。\n# context.before=3 带回 ` Tasks:/Cached:/Time:` 汇总三行 (任务定量上下文)。\nid: turbo-run-failed\ntitle: 'turbo 任务失败 (ERROR run failed / 任务 exited / Failed: 清单)'\ntool: turbo\ncategory: build\nconfidence: medium\ncontext: {before: 3, after: 1}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(.*: )?(?:\\x1b\\[[0-9;]*m)* ERROR (?:\\x1b\\[[0-9;]*m| )*(run failed: )?command.*exited \\([0-9]+\\)(?:\\x1b\\[[0-9;]*m)*$|^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*Failed: {2,}\\S'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "verify-pr-title-invalid",
+   "path": "verify-pr-title/verify-pr-title-invalid.yaml",
+   "yaml": "# samples: denoland/deno/39579393507-119152936895, denoland/deno/39577699879-119147234941\n# deno 仓 tools/verify_pr_title.js (deno run 执行) 的 PR 标题 lint 失败:\n# `The PR title must start with one of the following prefixes:` + conventional-commits 前缀清单 +\n# `Please fix the PR title according to ...`。上一步的 `PR title: <实际标题>` 行由 context 带出。\n# 文案特异 (conventionalcommits.org 提示行仅此脚本产出), 成功语料 0 命中。\nid: verify-pr-title-invalid\ntitle: 'PR 标题 lint 拒绝 (The PR title must start with one of the following prefixes:)'\ntool: verify-pr-title\ncategory: lint\nconfidence: high\ncontext: {before: 1, after: 6}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?The PR title must start with one of the following prefixes:'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "vitest-pass-noise",
+   "path": "vitest/vitest-pass-noise.yaml",
+   "yaml": "# samples: vuejs/core/39527648729-118985971966, honojs/hono/37464610017-112272396418\n# vitest 通过用例的 ✓ 行 (绿 `[32m✓[39m` 或暗黄嵌套 `[33m[2m✓[22m[39m`) — 被失败文件 ❯ 片段的\n# after-context 带入输出 (vue e2e 实测: ❯ 片段尾部 5 行嵌套通过用例), 剔除以保失败证据聚焦。\n# ✓ 后随 vitest 式重置 (`[22m`/`[39m`) 与 mocha 式 ✓ (`✓[0m`, TS 仓实测) 相区分 — 噪音跨剥无消费者\n# 影响, 区分纯为工具归因诚实。\nid: vitest-pass-noise\ntitle: vitest 通过用例行 (✓ name dur, 含暗黄嵌套形态)\ntool: vitest\nconfidence: low\npatterns:\n  - regex: '(?:\\x1b\\[[0-9;]*m)+✓(?:\\x1b\\[(22|39)m)'\nkind: noise\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "vitest-run-summary",
+   "path": "vitest/vitest-run-summary.yaml",
+   "yaml": "# samples: sveltejs/svelte/38669257972-116208220995, vuejs/core/39527648729-118985971966, honojs/hono/37456235545-112244434930, tailwindlabs/tailwindcss/39277337688-118145016778\n# vitest 运行汇总行 `Test Files  N failed | M passed (K)` / `Tests  N failed | ...` —\n# 冒号缺失是 vitest 与 jest 汇总的区分点 (jest 为 `Tests:       N failed`, 带冒号);\n# 要求 failed 计数 ≥1: 全绿运行打印 `Test Files  X passed (Y)` 不含 failed, 天然零 FP。\nid: vitest-run-summary\ntitle: vitest 运行汇总行 (Test Files / Tests  N failed)\ntool: vitest\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*\\s*(Test Files|Tests) (?:\\x1b\\[[0-9;]*m|[ ])*[1-9][0-9]* failed'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "vitest-test-fail",
+   "path": "vitest/vitest-test-fail.yaml",
+   "yaml": "# samples: sveltejs/svelte/38669257972-116208220995, vuejs/core/39527648729-118985971966, honojs/hono/37464610017-112272396418, tailwindlabs/tailwindcss/39277337688-118145016778\n# vitest 失败证据三形态 (实测全部带 ANSI 色, CI 无 --reporter=plain 样本):\n# ① 逐用例 FAIL 行 — 精确字面量 `\\x1b[41m\\x1b[1m FAIL \\x1b[22m\\x1b[49m` (红底粗体 FAIL,\n#    jest 的 FAIL 是 `[7m[1m[31m` 反色前景色, 字面量不同不相交) + 路径 + `\\x1b[2m > \\x1b[22m` 用例链;\n# ② 失败文件行 — 红色 `❯` (U+276F) 前缀, 后跟文件与 `(N tests | M failed)`; 通过文件是绿色 ✓, 不相交;\n# ③ `⎯ Failed Tests N ⎯` 分节头 (U+23AF 水平线)。\n# context.after=6 带出紧随的 AssertionError/期望-实际 diff 首段 (仅扩输出); 相邻失败行 A5 自然合并。\nid: vitest-test-fail\ntitle: vitest 失败用例/失败文件行 (FAIL 链, 红❯文件, Failed Tests 分节头)\ntool: vitest\ncategory: test\nconfidence: high\ncontext: {before: 0, after: 6}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?\\s*(\\x1b\\[41m\\x1b\\[1m FAIL \\x1b\\[22m\\x1b\\[49m \\S|\\x1b\\[31m❯\\x1b\\[39m\\s|(?:\\x1b\\[[0-9;]*m)*⎯+(?:\\x1b\\[[0-9;]*m)* Failed Tests [0-9]+)'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "wait-on-check-conclusion-not-allowed",
+   "path": "wait-on-check/wait-on-check-conclusion-not-allowed.yaml",
+   "yaml": "# samples: flutter/packages/38976753824-117227924025\n# lewagon/wait-on-check-action 失败 (第二形态): 等待的 check 结论不在允许清单 —\n# `The conclusion of one or more checks were not allowed. Allowed conclusions are: success, neutral.\n# This can be configured with the 'allowed-conclusions' param.` (上游 check 失败导致本 job 连坐)。\n# 前导的 `<check>: completed (conclusion)` 状态列表由 context 带出 (指认哪个 check 挂)。\n# 与 wait-on-check-never-run (check 未运行) 互斥互补, 覆盖该 action 的两种失败出口。\nid: wait-on-check-conclusion-not-allowed\ntitle: 'wait-on-check 结论不允许 (The conclusion of one or more checks were not allowed)'\ntool: wait-on-check\ncategory: infra\nconfidence: high\ncontext: {before: 5, after: 0}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?The conclusion of one or more checks were not allowed\\.'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "wait-on-check-never-run",
+   "path": "wait-on-check/wait-on-check-never-run.yaml",
+   "yaml": "# samples: flutter/packages/39526055358-118980837910, flutter/packages/39455827439-118742306418, flutter/packages/39272706028-118128917560\n# lewagon/wait-on-check-action 失败: `The requested check was never run against this ref, exiting...`\n# — 等待的 check 超时未出现 (flutter/packages release job 8/8 样本唯一失败形态)。\n# 前置重试行 `Matching checks have not been found yet, will check again in 30 seconds. (Limit: 60s)`\n# 由 context.before 带出。行文案特异, 成功语料 0 命中。\nid: wait-on-check-never-run\ntitle: 'wait-on-check 等待的 check 未运行 (The requested check was never run against this ref)'\ntool: wait-on-check\ncategory: infra\nconfidence: high\ncontext: {before: 2, after: 0}\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?The requested check was never run against this ref, exiting\\.\\.\\.'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "webpack-hook-error",
+   "path": "webpack/webpack-hook-error.yaml",
+   "yaml": "# samples: DavidAnson/markdownlint/39188125033-117880643426, DavidAnson/markdownlint/39188142201-117854827659, DavidAnson/markdownlint/39254962411-118382410792, DavidAnson/markdownlint/39356812264-118413375791, DavidAnson/markdownlint/39356823853-118413412003\n# webpack 构建失败: webpack-cli 错误打印 `✖ HookWebpackError: <inner>` (webpack 错误包装类\n# 名是工具签名), 扩展贪心消费后续 `    at ` 栈帧 / `-- inner error --` / `caused by ...` /\n# `XxxError: ` 内层错误行 (同一前缀族)。容忍 npm-runall `[label] ` 前缀、宿主时间戳与\n# ✖ 前的 ANSI 色码。块止于 `npm run xxx exited with code` 行 (不匹配任一 pattern)。\nid: webpack-hook-error\ntitle: 'webpack 构建错误块 (✖ HookWebpackError + 栈/inner error 级联)'\ntool: webpack\ncategory: build\nconfidence: high\npatterns:\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\[[^\\]]+\\] )*(?:\\x1b\\[[0-9;]*m)*✖ HookWebpackError: '\n  - regex: '^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(\\[[^\\]]+\\] )?(?:\\x1b\\[[0-9;]*m)*(    at |\\-{2} inner error \\-\\-|caused by |[A-Za-z]+(Error|Exception): )'\n    loop: true\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "xctest-assert-failed",
+   "path": "xctest/xctest-assert-failed.yaml",
+   "yaml": "# samples: vapor/vapor/39284171307-118165296698 (test-parallel), Alamofire/Alamofire/36652923475-109691555100 (macOS Xcode)\n# 锚: XCTest 运行期断言诊断 `path.swift:L: error: TestClass.testMethod : ...` —\n# 单坐标 (无列号) + `Class.method :` 限定段是与 swiftc 编译诊断\n# (`path.swift:L:C: error:`, 双坐标, swiftc-compile-error 覆盖) 的结构区分;\n# 断言名 (XCTAssert*) 跟在 ` : ` 之后不入锚 (措辞可变, 结构不变)。\nid: xctest-assert-failed\ntitle: 'XCTest 断言诊断 (File.swift:L: error: Class.test : ...)'\ntool: xctest\ncategory: test\nconfidence: high\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*\\S+\\.swift:[0-9]+: error: [A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]* : '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "xctest-test-case-failed",
+   "path": "xctest/xctest-test-case-failed.yaml",
+   "yaml": "# samples: vapor/vapor/39284171307-118165296698 (test-parallel)\n# 锚: XCTest 用例失败标记 `Test Case 'Class.test' failed (N.NNN seconds)` —\n# started/passed 形态正交 (措辞区分), 行首 `Test Case '` 是宿主签名。\nid: xctest-test-case-failed\ntitle: \"XCTest 用例失败标记 (Test Case 'X.y' failed (...))\"\ntool: xctest\ncategory: test\nconfidence: high\npatterns:\n  - regex: \"^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?Test Case '[^']*' failed \\\\([0-9.]+ seconds\\\\)\"\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "zig-build-command-failed",
+   "path": "zig/zig-build-command-failed.yaml",
+   "yaml": "# samples: zigtools/zls/39306715332-118245564454 (build windows), zigtools/zls/39129574279-117681799762\n# 锚: zig build 运行器失败行 `error: the following build command exited with\n# code N:` (zls 形态) / `... failed with exit code N:` (neovim 形态) —\n# `the following build command` 措辞是 zig 结构签名; context.after=2 带随后的\n# 实际构建命令行 (定位复现入口)。泛化行首 `error: ` 不取 (跨工具误吸面)。\nid: zig-build-command-failed\ntitle: 'zig build 失败 (error: the following build command exited with code N:)'\ntool: zig\ncategory: build\nconfidence: high\ncontext: {before: 0, after: 2}\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*error: the following build command (?:exited with code|failed with exit code) [0-9]+:'\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  },
+  {
+   "id": "zig-compile-error",
+   "path": "zig/zig-compile-error.yaml",
+   "yaml": "# samples: zigtools/zls/39306715332-118245564454 (build windows), zigtools/zls/39306715354-118245563925 (coverage), zigtools/zls/39129574258-117681799817\n# 锚: zig 编译诊断 `path.zig:L:C: error: msg` — .zig/.zon 扩展名 + 双坐标限定,\n# 与 gcc/clang (.c/.cc/...) 及 swiftc (.swift) 诊断族按扩展名正交。\n# context.after=4 带源码行/`~^` caret 行/`note:` 诊断附注。\nid: zig-compile-error\ntitle: 'zig 编译诊断 (File.zig:L:C: error:)'\ntool: zig\ncategory: typecheck\nconfidence: high\ncontext: {before: 0, after: 4}\npatterns:\n  - regex: '^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z )?(?:\\x1b\\[[0-9;]*m)*\\S+\\.(?:zig|zon):[0-9]+:[0-9]+: error: '\nkind: signal\nattribution:\n  contributor: luochen1990\n  generated-by: {harness: opencode-agent, model: glm-5.3}\n  adapter-version: 0.1.0\n"
+  }
+ ]
+}
