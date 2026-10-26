@@ -88,7 +88,7 @@ export async function boot(deps: BootDeps): Promise<void> {
     console.debug('[logskim] no adapter matched', loc.href)
     return
   }
-  const adapter = matched
+  const adapter: Adapter = matched // 重绑定收窄类型 — 闭包内保持 non-null (TS 流分析不跨函数声明)
 
   const t0 = performance.now()
   const report: LskReport = {
@@ -140,6 +140,19 @@ export async function boot(deps: BootDeps): Promise<void> {
     overlay.open()
   }
 
+  /** 规则元数据呈现单点: 验证面 (report.rules) 与 overlay chip 同源更新 (boot/refresh 共用)。 */
+  function applyRulesInfo(load: Extract<RulesLoadResult, { ok: true }>): void {
+    const info = {
+      source: load.source,
+      ruleCount: load.bundle.rules.length,
+      generatedAt: load.bundle.manifest.generated_at,
+      fetchedAt: load.fetchedAt,
+      stale: load.stale,
+    }
+    report.rules = info
+    overlay.renderRules(info)
+  }
+
   // ---- 状态外置 ----
   const annotations = new Map<string, Annotation>() // lineKey → 标注
   const ctx: AdapterCtx = { aligns: new Map() }
@@ -168,17 +181,16 @@ export async function boot(deps: BootDeps): Promise<void> {
   }
 
   // ---- 呈现轨 ②: 流内注入 (幂等 sync; 初始 pass 与 observer 重放共用同一函数) ----
-  function syncInline(opts: { replay?: boolean; mutations?: MutationRecord[] } = {}): { applied: number } {
+  function syncInline(opts: { replay?: boolean; mutations?: MutationRecord[] } = {}): void {
     if (!injector.enabled) {
       report.inline = { ...injector.stats, enabled: false }
-      return { applied: 0 }
+      return
     }
-    let applied = 0
     let examined = 0
     const replay = opts.replay === true
-    const applyEntries = (entries: LineEntry[], stepKey: string): number => {
+    const applyEntries = (entries: LineEntry[], stepKey: string): void => {
       for (const t of entries) t.el.dataset.lskKey = adapter.lineKey(stepKey, t.no)
-      return injector.applyAll(
+      injector.applyAll(
         entries.map((t) => t.el),
         annotations,
         (el) => el.dataset.lskKey,
@@ -186,10 +198,10 @@ export async function boot(deps: BootDeps): Promise<void> {
       )
     }
     /** 单池 sync: annotate 恒用全池行 (forgejo 对齐需要); apply 目标 = targets (增量时只含新子树行)。 */
-    const syncPool = (pool: HTMLElement, addedRoots: Element[] | null): number => {
+    const syncPool = (pool: HTMLElement, addedRoots: Element[] | null): void => {
       const stepKey = adapter.stepKeyOf(pool, doc)
       const src = adapter.sourceForStep(loaded, stepKey)
-      if (!src?.ok) return 0
+      if (!src?.ok) return
       const allLines = adapter.linesOf(pool)
       const a = adapter.annotateStep(src, stepKey, allLines, addAnno, ctx)
       if (a && !report.align.some((s) => s === a.stats)) report.align.push(a.stats)
@@ -197,7 +209,7 @@ export async function boot(deps: BootDeps): Promise<void> {
       const targets =
         addedRoots === null ? allLines : dedupeEntries(addedRoots.flatMap((r) => adapter.linesIn(r)))
       examined += targets.length
-      return applyEntries(targets, stepKey)
+      applyEntries(targets, stepKey)
     }
 
     /** 池内容漂移 (M3): 作废旧标注 (前缀键) + 剥离 DOM 痕迹含签名 → 强制整池重对齐重注入。 */
@@ -209,7 +221,7 @@ export async function boot(deps: BootDeps): Promise<void> {
 
     if (!opts.mutations) {
       report.sync.full++
-      for (const pool of adapter.stepLogs(doc)) applied += syncPool(pool, null)
+      for (const pool of adapter.stepLogs(doc)) syncPool(pool, null)
     } else {
       // 增量: 只找含新增节点的池; 未受影响池零成本跳过。
       const addedEls: Element[] = []
@@ -221,7 +233,7 @@ export async function boot(deps: BootDeps): Promise<void> {
           }
         }
       }
-      if (addedEls.length === 0) return { applied: 0 }
+      if (addedEls.length === 0) return
       report.sync.incremental++
       for (const pool of adapter.stepLogs(doc)) {
         const hits = addedEls.filter((el) => pool.contains(el) || el.contains(pool))
@@ -231,13 +243,12 @@ export async function boot(deps: BootDeps): Promise<void> {
           adapter.contentAligned && st !== undefined && poolFingerprint(adapter.linesOf(pool)) !== st.fp
         // contentAligned 池: 指纹漂移 = 对齐失效 → 剥离旧痕迹 (M3) 后整池重对齐
         if (grown) stripPool(pool)
-        applied += syncPool(pool, grown ? null : hits)
+        syncPool(pool, grown ? null : hits)
       }
     }
     report.sync.linesExamined += examined
     report.sync.lastExamined = examined
     report.inline = { ...injector.stats, enabled: true }
-    return { applied }
   }
 
   // ---- 数据装载: 规则 (cache-first) + wasm + 源取数 + skim ----
@@ -248,20 +259,7 @@ export async function boot(deps: BootDeps): Promise<void> {
     return // 无规则无法 skim — 诊断已呈现
   }
   const { bundle } = rulesLoad
-  report.rules = {
-    source: rulesLoad.source,
-    ruleCount: bundle.rules.length,
-    generatedAt: bundle.manifest.generated_at,
-    fetchedAt: rulesLoad.fetchedAt,
-    stale: rulesLoad.stale,
-  }
-  overlay.renderRules({
-    ruleCount: bundle.rules.length,
-    generatedAt: bundle.manifest.generated_at,
-    fetchedAt: rulesLoad.fetchedAt,
-    source: rulesLoad.source,
-    stale: rulesLoad.stale,
-  })
+  applyRulesInfo(rulesLoad)
   if (rulesLoad.stale) {
     pushDiag({
       stage: 'rules',
@@ -292,15 +290,9 @@ export async function boot(deps: BootDeps): Promise<void> {
     return
   }
 
-  const sourcesLoaded = await loadSources(adapter, doc, loc)
+  const sourcesLoaded = await loadSources()
   if (!sourcesLoaded) return // 无源: 诊断已呈现 (fatal), 不进入注入/observer
-  overlay.renderSources(
-    loaded.map((s) => ({
-      label: s.label,
-      fileName: s.fileName,
-      ...(s.ok ? { text: s.text, result: s.result } : { error: s.error }),
-    })),
-  )
+  renderLoadedSources()
 
   // ---- 初始 pass + observer 重放 ----
   syncInline()
@@ -308,9 +300,9 @@ export async function boot(deps: BootDeps): Promise<void> {
     if (loc.href !== bootHref) {
       // GitHub Turbo 同文档导航: 状态全外置于旧 URL — 干净重载 (userscript 随页重跑)。
       loc.reload()
-      return { applied: 0 }
+      return
     }
-    return syncInline({ replay: true, mutations: batch })
+    syncInline({ replay: true, mutations: batch })
   }, REPLAY_DEBOUNCE_MS)
   driver.start(adapter.observeRoot(doc))
   report.timing.total = Math.round(performance.now() - t0)
@@ -348,20 +340,7 @@ export async function boot(deps: BootDeps): Promise<void> {
         return
       }
       engine = candidate
-      report.rules = {
-        source: r.source,
-        ruleCount: r.bundle.rules.length,
-        generatedAt: r.bundle.manifest.generated_at,
-        fetchedAt: r.fetchedAt,
-        stale: r.stale,
-      }
-      overlay.renderRules({
-        ruleCount: r.bundle.rules.length,
-        generatedAt: r.bundle.manifest.generated_at,
-        fetchedAt: r.fetchedAt,
-        source: r.source,
-        stale: r.stale,
-      })
+      applyRulesInfo(r)
       // 只清 rules 诊断 (m6): source/wasm 等其他环节的问题与刷新无关, 不能顺手抹掉
       const kept = diags.filter((d) => d.stage !== 'rules')
       diags.length = 0
@@ -372,6 +351,17 @@ export async function boot(deps: BootDeps): Promise<void> {
     } finally {
       refreshing = false
     }
+  }
+
+  /** 已装载源 → overlay 呈现 (boot 与 reskimAll 共用)。 */
+  function renderLoadedSources(): void {
+    overlay.renderSources(
+      loaded.map((s) => ({
+        label: s.label,
+        fileName: s.fileName,
+        ...(s.ok ? { text: s.text, result: s.result } : { error: s.error }),
+      })),
+    )
   }
 
   /** 规则更新后的全量重注入: 清痕迹 → 重 skim → 重建标注表 → 整池 sync。 */
@@ -393,20 +383,14 @@ export async function boot(deps: BootDeps): Promise<void> {
     report.align = []
     injector.clearAll()
     syncInline()
-    overlay.renderSources(
-      loaded.map((s) => ({
-        label: s.label,
-        fileName: s.fileName,
-        ...(s.ok ? { text: s.text, result: s.result } : { error: s.error }),
-      })),
-    )
+    renderLoadedSources()
   }
 
   /**
    * 源取数 + skim; 返回是否装载了至少一个源 (零源 → false, 诊断走 fatal);
    * 单源失败 → 降级态 LoadedSource (其余源可用, boot 继续)。
    */
-  async function loadSources(adapter: Adapter, doc: Document, loc: Location): Promise<boolean> {
+  async function loadSources(): Promise<boolean> {
     let sources: LogSource[]
     try {
       sources = await adapter.logSources(doc, loc)

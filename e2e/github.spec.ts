@@ -27,9 +27,13 @@ async function bootGithub(browser: import('@playwright/test').Browser): Promise<
   return { context, page, report }
 }
 
-/** step2 (失败源) 断言辅助: 源必为 ok, 否则返回 undefined 供 expect 捕获。 */
-function srcOf(report: LskReport, idx: number) {
-  return report.sources[idx]
+/** 滚动到目标逻辑行 (data-index): 在场则滚入视口, 否则像素估算兜底 (行高 ~21px)。 */
+async function scrollToIndex(page: import('@playwright/test').Page, idx: number): Promise<void> {
+  await page.evaluate(
+    (i: number) =>
+      document.querySelector(`[data-index='${i}']`)?.scrollIntoView() ?? window.scrollTo(0, i * 21),
+    idx,
+  )
 }
 
 test.describe('github fixture 主链路', () => {
@@ -40,8 +44,7 @@ test.describe('github fixture 主链路', () => {
 
     // 双源 (step1 + step2), step2 = 真实失败样本: T4 对账锚点 10 blocks / 1172→21
     expect(report.sources).toHaveLength(2)
-    const step2 = srcOf(report, 1)
-    expect(step2).toMatchObject({ ok: true, blocks: 10, inputLines: 1172, outputLines: 21 })
+    expect(report.sources[1]).toMatchObject({ ok: true, blocks: 10, inputLines: 1172, outputLines: 21 })
 
     // fab + overlay 打开 → 块列表 + 折叠 gap + 规则 chip
     await expect(page.locator('#lsk-fab')).toBeVisible()
@@ -64,9 +67,7 @@ test.describe('github fixture 主链路', () => {
     expect(await page.locator('.lsk-inline').count()).toBeLessThan(5)
 
     // 滚到失败区 (~L1000): attach → observer 重放
-    await page.evaluate(
-      'document.querySelector("[data-index=\'985\']")?.scrollIntoView() ?? window.scrollTo(0, 985*21)',
-    )
+    await scrollToIndex(page, 985)
     await page.waitForFunction('window.__lsk && window.__lsk.inline.replayed > 0')
     await page.waitForTimeout(600)
     await page.evaluate('document.querySelector(`[data-index="1001"]`)?.scrollIntoView({block:"center"})')
@@ -122,9 +123,7 @@ test.describe('github fixture 主链路', () => {
     const { context, page } = await bootGithub(browser)
 
     // 先滚到失败区建立高亮基线
-    await page.evaluate(
-      'document.querySelector("[data-index=\'985\']")?.scrollIntoView() ?? window.scrollTo(0, 985*21)',
-    )
+    await scrollToIndex(page, 985)
     await page.waitForFunction('window.__lsk && window.__lsk.inline.replayed > 0')
     await page.waitForTimeout(500)
     const before = (await getReport(page)).inline
@@ -159,9 +158,7 @@ test.describe('控件态 × 重放 (B1 矩阵)', () => {
     const { context, page } = await bootGithub(browser)
 
     // 建立高亮基线
-    await page.evaluate(
-      'document.querySelector("[data-index=\'985\']")?.scrollIntoView() ?? window.scrollTo(0, 985*21)',
-    )
+    await scrollToIndex(page, 985)
     await page.waitForFunction('window.__lsk && window.__lsk.inline.replayed > 0')
     await page.waitForTimeout(400)
     expect(await page.locator('.lsk-inline').count()).toBeGreaterThan(0)
@@ -175,9 +172,7 @@ test.describe('控件态 × 重放 (B1 矩阵)', () => {
     // off 状态下滚动 → 虚拟化重放被开关挡住 (B1: 不注入新行)
     await page.evaluate('window.scrollTo(0, 0)')
     await page.waitForTimeout(400)
-    await page.evaluate(
-      'document.querySelector("[data-index=\'985\']")?.scrollIntoView() ?? window.scrollTo(0, 985*21)',
-    )
+    await scrollToIndex(page, 985)
     await page.waitForTimeout(800)
     expect(await page.locator('.lsk-inline').count()).toBe(0)
 
@@ -191,9 +186,7 @@ test.describe('控件态 × 重放 (B1 矩阵)', () => {
 
   test('rules 刷新: 失败 → 保留旧 bundle 继续; 成功 → reskim 高亮重建', async ({ browser }) => {
     const { context, page } = await bootGithub(browser)
-    await page.evaluate(
-      'document.querySelector("[data-index=\'985\']")?.scrollIntoView() ?? window.scrollTo(0, 985*21)',
-    )
+    await scrollToIndex(page, 985)
     await page.waitForFunction('window.__lsk && window.__lsk.inline.replayed > 0')
     await page.waitForTimeout(400)
 
@@ -205,15 +198,14 @@ test.describe('控件态 × 重放 (B1 矩阵)', () => {
     let report = await getReport(page)
     expect(report.diags.some((d) => d.stage === 'rules' && d.message.includes('refresh failed'))).toBe(true)
     expect(await page.locator('.lsk-inline').count()).toBeGreaterThan(0) // 高亮未被破坏
-    const step2 = srcOf(report, 1)
-    expect(step2).toMatchObject({ ok: true, blocks: 10 })
+    expect(report.sources[1]).toMatchObject({ ok: true, blocks: 10 })
 
     // 刷新成功: 解除拦截 → 重拉 → reskim (块数不变, 诊断清空)
     await page.unrouteAll({ behavior: 'ignoreErrors' })
     await page.click('#lsk-refresh')
     await page.waitForFunction('window.__lsk && window.__lsk.diags.length === 0')
     report = await getReport(page)
-    expect(srcOf(report, 1)).toMatchObject({ ok: true, blocks: 10 })
+    expect(report.sources[1]).toMatchObject({ ok: true, blocks: 10 })
     expect(await page.locator('.lsk-inline').count()).toBeGreaterThan(0)
     await context.close()
   })
@@ -291,9 +283,7 @@ test.describe('多源与增量', () => {
 
     // 小幅滚动 (1-2 个新 cluster): 增量批次只扫新增子树行
     const incBefore = mid.sync.incremental
-    await page.evaluate(
-      'document.querySelector("[data-index=\'60\']")?.scrollIntoView() ?? window.scrollTo(0, 60*21)',
-    )
+    await scrollToIndex(page, 60)
     await page.waitForFunction(
       (inc: number) => window.__lsk && window.__lsk.sync.incremental > inc,
       incBefore,

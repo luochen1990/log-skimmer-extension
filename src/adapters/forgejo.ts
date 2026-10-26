@@ -12,7 +12,15 @@
 import { LOG_FETCH_TIMEOUT_MS } from '../config.ts'
 import { alignStep, poolFingerprint } from '../core/align.ts'
 import { topFragment } from '../core/intent.ts'
-import type { Adapter, AdapterCtx, AlignResult, LoadedSource, LogSource, OutputBlock } from '../types.ts'
+import type {
+  Adapter,
+  AdapterCtx,
+  AlignResult,
+  LineEntry,
+  LoadedSource,
+  LogSource,
+  OutputBlock,
+} from '../types.ts'
 
 interface ForgejoJob {
   id: number
@@ -35,6 +43,20 @@ export function parseForgejoLoc(loc: Location): {
     throw new Error(`not a forgejo job page: ${loc.pathname}`)
   }
   return { owner, repo, runId, jobIndex }
+}
+
+/** 行元素 → [{no, text, el}] (no = step 内局部行号, 取自 id, 1-based; 非 jobstep-N-M id 滤除)。 */
+function lineEntries(els: HTMLElement[]): LineEntry[] {
+  return els
+    .map((el) => {
+      const m = /^jobstep-(\d+)-(\d+)$/.exec(el.id)
+      return {
+        no: m ? Number(m[2]) : Number.NaN,
+        text: el.querySelector('.log-msg')?.textContent ?? el.textContent ?? '',
+        el,
+      }
+    })
+    .filter((l) => Number.isInteger(l.no))
 }
 
 export const forgejoAdapter = {
@@ -90,10 +112,8 @@ export const forgejoAdapter = {
     if (!a || a.fp !== fp) {
       const r = alignStep(lines, src.text.split('\n'))
       a = {
-        noToFull: r.noToFull,
         inverse: new Map([...r.noToFull].map(([no, f]) => [f, no])),
         fp,
-        lineCount: lines.length,
         stepKey,
         stats: r.stats,
       }
@@ -128,35 +148,18 @@ export const forgejoAdapter = {
     return `logs-${[...doc.querySelectorAll('.job-step-logs')].indexOf(logsEl)}`
   },
 
-  /** 池内行迭代: [{no, text, el}] (no = step 内局部行号, 取自 id, 1-based)。 */
+  /** 池内行迭代 (no = step 内局部行号, 取自 id, 1-based)。 */
   linesOf(logsEl) {
-    return [...logsEl.querySelectorAll<HTMLElement>('.job-log-line')]
-      .map((el) => {
-        const m = /^jobstep-(\d+)-(\d+)$/.exec(el.id)
-        return {
-          no: m ? Number(m[2]) : Number.NaN,
-          text: el.querySelector('.log-msg')?.textContent ?? el.textContent ?? '',
-          el,
-        }
-      })
-      .filter((l) => Number.isInteger(l.no))
+    return lineEntries([...logsEl.querySelectorAll<HTMLElement>('.job-log-line')])
   },
 
+  /** 增量 sync: subtree 自身是行则只含自身, 否则枚举子树内行 (lazy append 的行节点)。 */
   linesIn(subtree) {
-    const scope =
+    const els =
       subtree instanceof HTMLElement && subtree.classList.contains('job-log-line')
         ? [subtree]
         : [...subtree.querySelectorAll<HTMLElement>('.job-log-line')]
-    return scope
-      .map((el) => {
-        const m = /^jobstep-(\d+)-(\d+)$/.exec(el.id)
-        return {
-          no: m ? Number(m[2]) : Number.NaN,
-          text: el.querySelector('.log-msg')?.textContent ?? el.textContent ?? '',
-          el,
-        }
-      })
-      .filter((l) => Number.isInteger(l.no))
+    return lineEntries(els)
   },
 
   /** 外置状态 key: `${stepKey}:${no}` (no = step 内局部行号; 全量块坐标 → 局部行映射见 annotateStep)。 */

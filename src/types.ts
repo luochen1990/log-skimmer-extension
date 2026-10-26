@@ -116,17 +116,16 @@ export type LoadedSource =
     }
 
 export interface AlignResult {
-  noToFull: Map<number, number>
+  /** 全量行号 → step 内行号 (块坐标 → DOM 行的映射面; 正向 noToFull 只在构建期消费)。 */
   inverse: Map<number, number>
-  /** 对齐时的池指纹 (行数+首末行文本) — 指纹变化 = 池内容漂移, 缓存失效。 */
+  /** 对齐时的池指纹 (行数 + 全部行文本, 见 poolFingerprint) — 变化 = 池漂移, 缓存失效重算。 */
   fp: string
-  lineCount: number
   stepKey: string
   stats: { domLines: number; matched: number; unmatched: number }
 }
 
 export interface AdapterCtx {
-  /** forgejo: stepKey → 对齐缓存 (行数变化即失效重算)。 */
+  /** forgejo: stepKey → 对齐缓存 (池指纹变化即失效重算)。 */
   aligns: Map<string, AlignResult>
 }
 

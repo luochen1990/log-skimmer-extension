@@ -11,7 +11,7 @@ export class ReplayDriver {
   private pending: MutationRecord[] = []
 
   constructor(
-    private readonly onReplay: (batch: MutationRecord[]) => { applied: number },
+    private readonly onReplay: (batch: MutationRecord[]) => void,
     private readonly debounceMs = 120,
   ) {}
 
