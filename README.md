@@ -85,8 +85,9 @@ just install       # npm ci (工具版本 SSOT = package-lock.json)
 just check         # lint (biome) + typecheck (tsc) + build (esbuild) + unit (node:test) + e2e (playwright)
 ```
 
-e2e 全离线: 规则 bundle 与日志均由本地 fixture 服务 (8801) 供给; forgejo 用例打本地真实
-实例 (127.0.0.1:3999, 不可达自动 skip)。浏览器缓存: `just browsers` (playwright chromium)。
+e2e 全离线: 规则 bundle 与日志均由本地 fixture 服务 (8801) 供给; forgejo 双轨 —
+fixture 用例 (确定性, 覆盖渐进渲染/grown 重对齐) + 活体用例 (本地真实实例
+127.0.0.1:3999, 不可达自动 skip)。浏览器缓存: `just browsers` (playwright chromium)。
 
 手动体验: `just serve` 后浏览器打开 `http://127.0.0.1:8801/fixtures/github/index.html`,
 再以 Tampermonkey 安装 `dist/log-skimmer.user.js` (或无管理器直接看降级路径)。

@@ -10,31 +10,51 @@
   - `config.ts` — 常量 SSOT (bundle URL / 版本 / GM 键 / 超时)。
   - `gm.ts` — Tampermonkey GM_* 门面 (唯一管理器接触点; 无管理器自动降级 localStorage+fetch)。
   - `controller.ts` — 编排: 适配器探测 → 规则 → wasm → 取数+skim → 呈现双轨 → observer 重放。
-  - `core/` — 页面无关核心: `abi.ts` (wasm 薄壳, T1 ABI 纪律) / `engine.ts` / `align.ts`
-    (forgejo 两指针对齐, 归一化四件套) / `rules.ts` (bundle 校验/缓存/版本协商) /
-    `semver.ts` / `inline.ts` (幂等注入) / `observer.ts` (重放驱动) / `overlay.ts` (摘要面板)。
-  - `adapters/` — 页面知识孤岛: `github.ts` (data-log-url + data-index 直映) /
+  - `core/` — 页面无关核心: `abi.ts` (wasm 薄壳, T1 ABI 纪律, 模块级 compile 缓存) /
+    `engine.ts` / `align.ts` (forgejo 两指针对齐: 归一化四件套 + **首行锚定** — DOM 行集
+    可对应全量任意连续段, 非仅前缀; `poolFingerprint` 池漂移哨兵 SSOT) / `rules.ts`
+    (bundle 校验/缓存/版本协商/作废) / `semver.ts` / `intent.ts` (intent 优先级/配色/
+    块主 intent 单点) / `inline.ts` (幂等注入, clearAll/clearPool) / `observer.ts` (重放驱动) /
+    `overlay.ts` (摘要面板)。
+  - `adapters/` — 页面知识孤岛: `github.ts` (data-log-url + data-index 直映, deferProbe) /
     `forgejo.ts` (job API + 对齐映射)。新增 CI 平台 = 新增一个 adapter 文件。
 - `vendors/` — 外部构建产物 (engine.wasm + 来源/指纹/升级路径登记, 见 vendors/README.md)。
 - `fixtures/` — e2e 基底: `github/` (T4 仿真: 虚拟化 + 重渲染 + 真实语料) /
-  `degrade/` (无端点/403/404/非 CI 页) / `rules-bundle.json` (跨仓契约格式的本地构造副本)。
+  `forgejo/` (M3: 手工 .job-step-logs + append/rewrite 渐进渲染控制, API 由 e2e route
+  拦截 — 兼作活体实例停运退路) / `degrade/` (无端点/403/404/非 CI 页) /
+  `rules-bundle.json` (跨仓契约格式的本地构造副本)。
 - `scripts/` — `build.mjs` (wasm gzip+base64 内嵌 + esbuild + userscript banner) /
   `serve.mjs` (8801 静态服务, CORS 全开, `/_status/<code>/` 状态码仿真) /
   `make-local-bundle.mjs` (规则仓 checkout → fixtures bundle, dev 工具)。
-- `e2e/` — Playwright: `harness.ts` (GM shim + 注入) + 三个 spec (github 主链路 / degrade /
-  forgejo 活体) + `shots/` 交付截图。
+- `e2e/` — Playwright: `harness.ts` (GM shim + 注入) + 四个 spec (github 主链路+M1/M4 /
+  degrade 含 M2 自愈 / forgejo fixture (M3 grown/同数异容) / forgejo 活体) + `shots/` 交付截图。
 
 ## 实现约定
 
 - **架构三不变式** (spike T4 结论, 违反即架构回归): ① 状态外置 (标注按 `(source, line)`
   外置, 行 DOM 是临时物); ② 幂等 sync 是唯一注入路径 (初始 pass 与 observer 重放共用
-  `syncInline`, 增量批次只扫 mutation 涉及的新节点 — `sync.lastExamined` 是增量性的可断言面);
-  ③ 事件驱动重放 (任何重建/懒加载/虚拟化收敛为 "sync 一遍")。
+  `syncInline`, 增量批次只扫 mutation 涉及的新节点 — `sync.lastExamined` 是增量性的可断言面;
+  自家 UI 变更 (#lsk-overlay/#lsk-fab) 在批次入口过滤, 防自激励); ③ 事件驱动重放
+  (任何重建/懒加载/虚拟化收敛为 "sync 一遍")。
+- **池漂移协议 (contentAligned 适配器)**: 池指纹 (`poolFingerprint` = 行数+全行文本,
+  同数异容可察, 首末采样有中段盲区故取全量) 变化 = 对齐失效 → 先 `stripPool` (作废该池
+  前缀键标注 + `clearPool` 剥离 DOM 痕迹含幂等签名) 再整池重对齐重注入 — 残留旧标注会
+  错位 (M3)。非 contentAligned (github 直映) 不参与。
+- **激活竞态 (M1)**: adapter 可声明 `deferProbe` (match 依赖渐进渲染的 DOM) — controller
+  探测 miss 时等 DOMContentLoaded 后有界重探 (500ms×20); 时序稳定的 adapter (纯 URL
+  判定) miss 即退出, 不空等。
+- **缓存投毒自愈 (M2)**: bundle 过结构校验 ≠ 引擎可执行 — boot/refresh 建引擎后跑
+  `engineProbe` (单行最小 skim; 空日志会被引擎 "日志为空" 校验拒掉, 探针必须非空),
+  失败即 `invalidateCache` + fatal/诊断提示 reload。
 - **B1 教训 (控件态闭环)**: 任何影响注入形态的控件走 "改态 → sync" 而非直接改 DOM;
   off 必须清幂等签名 (否则重放对新行注入、旧行残留); on 必须主动补 sync (无 DOM 变更
   则无重放事件)。**每个新控件都要补 "toggle 后滚动/重渲染" 的 e2e 用例**。
-- **wasm ABI 纪律** (T1, `src/core/abi.ts` 头注释): UTF-8 字节长 alloc / 全 alloc 后写 /
-  4B LE 前缀读 / free 带原 cap / 异常路径 finally 归还。ABI 变更须与引擎仓联动。
+  触发异步动作的控件 (⟳ rules) 补 pending disabled + busy 防重入 (n8)。
+- **sourceForStep 严格匹配**: 不做 "任意可用源" 兜底 — 兜底会把别的 step 的源标注到
+  本池 → 错位高亮 (M4); stepKey 匹配不上就零注入 (可诊断的静默)。
+- **wasm ABI 纪律** (T1, `src/core/abi.ts` 头注释): UTF-8 字节长 alloc / 逐段 alloc→建
+  视图→写 (跨调用旧视图会被 memory 增长 detach, 读前必须重建) / 4B LE 前缀读 /
+  free 带原 cap / 异常路径 finally 归还。ABI 变更须与引擎仓联动。
 - **规则消费纪律**: bundle 格式 SSOT = rules 仓生成管线, 本仓只消费; 校验
   (`validateBundle`) 对 format_version / min_engine_version / 结构 / rule_count 全严格
   (宁拒勿错, 有诊断)。缓存 cache-first; 刷新失败保留旧 bundle。
@@ -69,8 +89,10 @@
   同文件 TODO, 登录态实测后只改一处。
 - wasm 产物无 `engine_version` 导出 (spike 产物) — 版本协商用 host 侧 `ENGINE_VERSION`
   常量 (config.ts); M1 产物就绪后按 `vendors/README.md` 升级步骤切换。
-- forgejo 活体 e2e 依赖本地实例 (127.0.0.1:3999, T4 遗留), 不可达自动 skip —
-  skip 后 forgejo 覆盖缺口, 复跑 `spike-proto/scripts/forgejo-dev/run-local-forgejo.sh` 恢复。
+- **forgejo 活体 e2e 依赖本地实例 (127.0.0.1:3999, T4 遗留), 不可达自动 skip —
+  skip 后 forgejo 基本链路仍由 `fixtures/forgejo/` fixture e2e 兜底 (M3 起补齐:
+  单源/对齐/grown/同数异容), 活体独有面 (Vue 渲染管线/懒加载交互) 缺口,
+  复跑 `spike-proto/scripts/forgejo-dev/run-local-forgejo.sh` 恢复。
 
 ## 验证链
 

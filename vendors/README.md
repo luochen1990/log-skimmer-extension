@@ -26,7 +26,8 @@
 ### 升级到 M1 正式产物
 
 1. 用引擎仓正式 crate 构建产物, 替换 `engine.wasm`, 更新上表 (来源/构建/sha256/体积)。
-2. 若 M1 产物新增 `engine_version` 导出: 在 `src/core/abi.ts` 的 `getEngineVersion`
-   接入真实读取, 删除 `src/config.ts` 中 `ENGINE_VERSION` 常量的 host 侧假设
+2. 若 M1 产物新增 `engine_version` 导出: 在 `src/core/abi.ts` **新增** `getEngineVersion`
+   读取真实版本 (当前尚无该导出, 也无此函数 — 这是 M1 的接入点), 删除
+   `src/config.ts` 中 `ENGINE_VERSION` 常量的 host 侧假设
    (版本协商逻辑不变, 仅版本来源切换)。
 3. 跑 `just check` — e2e 含 wasm 真实 skim 对账 (块数与 fixture 断言), ABI 漂移会红。
