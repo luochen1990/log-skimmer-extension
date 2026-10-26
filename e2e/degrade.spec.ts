@@ -110,6 +110,8 @@ test('规则 bundle 首拉失败 (无缓存) → rules 诊断, 不注入', async
   await context.close()
 })
 
+// 版本协商降级在 engine-version.spec.ts 有专题套件 (wasm 侧版本 + 零注入 +
+// 面板呈现全断言); 本用例保留 rules 诊断面视角的双保险。
 test('版本协商: min_engine_version 高于本构建 → bundle 拒收', async ({ browser }) => {
   const { context, page } = await newSkimPage(browser)
   const bundle = (await readFixtureBundle()) as { manifest: Record<string, unknown> }

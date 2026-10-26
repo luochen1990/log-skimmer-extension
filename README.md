@@ -48,7 +48,7 @@ CI 失败日志动辄上万行, 真正的失败证据往往只有几十行。log
 ## 架构概览
 
 ```
-┌─ userscript (单文件, ~0.74 MiB) ────────────────────────────────┐
+┌─ userscript (单文件, ~0.75 MiB) ────────────────────────────────┐
 │ main.ts ─→ controller ─┬─ adapters (github / forgejo)  页面知识 │
 │  (GM 门面)             ├─ core/engine ─→ wasm skim (内嵌)       │
 │                        ├─ core/rules  ─→ bundle 拉取/缓存/协商  │
@@ -71,7 +71,7 @@ CI 失败日志动辄上万行, 真正的失败证据往往只有几十行。log
 
 | 仓                                                                      | 角色               | 与本仓的契约                                                                                                                                         |
 | ----------------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [log-skimmer](https://github.com/luochen1990/log-skimmer)               | 引擎 (Rust) + spec | wasm ABI: `alloc`/`free`/`skim_json`, 4B 长度前缀 envelope                                                                                           |
+| [log-skimmer](https://github.com/luochen1990/log-skimmer)               | 引擎 (Rust) + spec | wasm ABI: `wasm_alloc`/`wasm_free`/`wasm_skim_json`/`wasm_engine_version`, 4B 长度前缀; 构建期源构建内嵌 (见 scripts/build.mjs)                      |
 | [log-skimmer-rules](https://github.com/luochen1990/log-skimmer-rules)   | 规则库 (社区维护)  | bundle: `{manifest: {format_version, min_engine_version, rule_count, generated_at}, rules: [{id, path, yaml}]}` @ `reports` 分支 `rules-bundle.json` |
 | [log-skimmer-corpus](https://github.com/luochen1990/log-skimmer-corpus) | 语料库             | e2e fixture 的日志样本来源 (真实失败样本)                                                                                                            |
 
@@ -84,6 +84,10 @@ nix develop        # node + just 工具链 (或自备 node ≥ 24)
 just install       # npm ci (工具版本 SSOT = package-lock.json)
 just check         # lint (biome) + typecheck (tsc) + build (esbuild) + unit (node:test) + e2e (playwright)
 ```
+
+构建期 wasm 来自引擎仓源构建 (`LOG_SKIMMER_WASM_SRC`, 默认指向引擎仓 worktree;
+cargo + wasm32 工具链经引擎仓 devShell 提供 — `nix develop <引擎仓> -c just check`
+可全链跑通; 生产 CI 将自建, 见 scripts/build.mjs 注释)。
 
 e2e 全离线: 规则 bundle 与日志均由本地 fixture 服务 (8801) 供给; forgejo 双轨 —
 fixture 用例 (确定性, 覆盖渐进渲染/grown 重对齐) + 活体用例 (本地真实实例

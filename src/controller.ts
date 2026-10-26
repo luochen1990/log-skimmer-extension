@@ -1,6 +1,7 @@
 // controller.ts — userscript 编排核心 (页面知识全在 adapter)。
-// 编排: 适配器探测 → 规则装载 (cache-first) → wasm 引擎 → 数据外置取数+skim
-//       → 呈现双轨 (overlay 主视图 + 流内注入) → MutationObserver 重放。
+// 编排: 适配器探测 → wasm 引擎 (解压+版本读取) → 规则装载 (cache-first, 版本协商
+//       用 wasm 侧版本) → 数据外置取数+skim → 呈现双轨 (overlay 主视图 + 流内注入)
+//       → MutationObserver 重放。
 // 架构不变式 (T4 结论, 沿用): 状态外置 + 幂等 sync + 事件驱动重放 — 注入永不假设
 // 行 DOM 存活; 任何重建/虚拟化/懒加载都收敛为 "sync 一遍"。
 // 增量 sync (T4 遗留 #6): observer 批次只扫 mutation 涉及的新节点 — 未受影响的
@@ -10,8 +11,8 @@
 
 import { forgejoAdapter } from './adapters/forgejo.ts'
 import { githubAdapter } from './adapters/github.ts'
-import { ENGINE_VERSION, LOG_FETCH_TIMEOUT_MS, REPLAY_DEBOUNCE_MS } from './config.ts'
-import { gunzip } from './core/abi.ts'
+import { LOG_FETCH_TIMEOUT_MS, REPLAY_DEBOUNCE_MS } from './config.ts'
+import { gunzip, readEngineVersion } from './core/abi.ts'
 import { poolFingerprint } from './core/align.ts'
 import { SkimEngine } from './core/engine.ts'
 import { type Annotation, InlineInjector } from './core/inline.ts'
@@ -94,7 +95,7 @@ export async function boot(deps: BootDeps): Promise<void> {
   const report: LskReport = {
     adapter: adapter.name,
     ready: false,
-    engineVersion: ENGINE_VERSION,
+    engineVersion: '', // wasm 解压后回填 (版本来源 = wasm 侧, 非 host 常量)
     sources: [],
     timing: { total: 0 },
     inline: { applied: 0, replayed: 0, enabled: true },
@@ -251,8 +252,18 @@ export async function boot(deps: BootDeps): Promise<void> {
     report.inline = { ...injector.stats, enabled: true }
   }
 
-  // ---- 数据装载: 规则 (cache-first) + wasm + 源取数 + skim ----
-  const rulesStore = new RulesStore(gm)
+  // ---- 数据装载: wasm (解压+版本读取) → 规则 (cache-first, 版本协商用 wasm 侧版本) → 源取数 + skim ----
+  let wasmBytes: Uint8Array<ArrayBuffer>
+  let engineVersion: string
+  try {
+    wasmBytes = await gunzip(wasmB64)
+    engineVersion = await readEngineVersion(wasmBytes)
+    report.engineVersion = engineVersion
+  } catch (e) {
+    fatal({ stage: 'wasm', message: `engine wasm failed to load: ${errToMessage(e)}` })
+    return
+  }
+  const rulesStore = new RulesStore(gm, engineVersion)
   const rulesLoad = await rulesStore.load()
   if (!rulesLoad.ok) {
     fatal(rulesLoad.diag)
@@ -268,13 +279,6 @@ export async function boot(deps: BootDeps): Promise<void> {
     })
   }
 
-  let wasmBytes: Uint8Array<ArrayBuffer>
-  try {
-    wasmBytes = await gunzip(wasmB64)
-  } catch (e) {
-    fatal({ stage: 'wasm', message: `engine wasm failed to load: ${errToMessage(e)}` })
-    return
-  }
   try {
     engine = await SkimEngine.create(wasmBytes, rulesJsonForWasm(bundle))
     engineProbe(engine)

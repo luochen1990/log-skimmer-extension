@@ -4,15 +4,8 @@
 export const RULES_BUNDLE_URL =
   'https://raw.githubusercontent.com/luochen1990/log-skimmer-rules/reports/rules-bundle.json'
 
-/** bundle manifest.format_version 期望值 (不匹配即拒收)。 */
+/** bundle manifest.format_version 期望值 (存在且不匹配即拒收; 键可省略 — 契约同 min_engine_version)。 */
 export const BUNDLE_FORMAT_VERSION = 2
-
-/**
- * 引擎版本 — 与 vendors/engine.wasm 内的 engine crate 版本对应。
- * M1 前的 host 侧登记 (spike wasm 无 engine_version 导出); M1 产物新增导出后
- * 切换为 wasm 侧真实读取, 见 vendors/README.md 升级步骤。
- */
-export const ENGINE_VERSION = '0.1.0'
 
 /** 缓存的 bundle 超过该天数 → overlay 显示 stale 提示 (不阻断功能)。 */
 export const RULES_STALE_DAYS = 7

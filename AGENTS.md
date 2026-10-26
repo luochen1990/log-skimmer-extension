@@ -9,25 +9,27 @@
   - `types.ts` — 协议类型 SSOT: SkimResult JSON (引擎 serde 镜像) / bundle 契约 / Adapter 接口 / 诊断与报告面。
   - `config.ts` — 常量 SSOT (bundle URL / 版本 / GM 键 / 超时)。
   - `gm.ts` — Tampermonkey GM_* 门面 (唯一管理器接触点; 无管理器自动降级 localStorage+fetch)。
-  - `controller.ts` — 编排: 适配器探测 → 规则 → wasm → 取数+skim → 呈现双轨 → observer 重放。
-  - `core/` — 页面无关核心: `abi.ts` (wasm 薄壳, T1 ABI 纪律, 模块级 compile 缓存) /
-    `engine.ts` / `align.ts` (forgejo 两指针对齐: 归一化四件套 + **首行锚定** — DOM 行集
-    可对应全量任意连续段, 非仅前缀; `poolFingerprint` 池漂移哨兵 SSOT) / `rules.ts`
+  - `controller.ts` — 编排: 适配器探测 → wasm (解压+版本读取) → 规则 (版本协商用 wasm 侧版本) → 取数+skim → 呈现双轨 → observer 重放。
+  - `core/` — 页面无关核心: `abi.ts` (wasm 薄壳, T1 ABI 纪律, 模块级 compile 缓存,
+    `readEngineVersion` = 版本协商的 wasm 侧事实来源) / `engine.ts` / `align.ts`
+    (forgejo 两指针对齐: 归一化四件套 + **首行锚定** — DOM 行集可对应全量任意连续段,
+    非仅前缀; `poolFingerprint` 池漂移哨兵 SSOT) / `rules.ts`
     (bundle 校验/缓存/版本协商/作废) / `semver.ts` / `intent.ts` (intent 优先级/配色/
     块主 intent 单点) / `inline.ts` (幂等注入, clearAll/clearPool) / `observer.ts` (重放驱动) /
     `overlay.ts` (摘要面板)。
   - `adapters/` — 页面知识孤岛: `github.ts` (data-log-url + data-index 直映, deferProbe) /
     `forgejo.ts` (job API + 对齐映射)。新增 CI 平台 = 新增一个 adapter 文件。
-- `vendors/` — 外部构建产物 (engine.wasm + 来源/指纹/升级路径登记, 见 vendors/README.md)。
 - `fixtures/` — e2e 基底: `github/` (T4 仿真: 虚拟化 + 重渲染 + 真实语料) /
   `forgejo/` (M3: 手工 .job-step-logs + append/rewrite 渐进渲染控制, API 由 e2e route
   拦截 — 兼作活体实例停运退路) / `degrade/` (无端点/403/404/非 CI 页) /
   `rules-bundle.json` (跨仓契约格式的本地构造副本)。
-- `scripts/` — `build.mjs` (wasm gzip+base64 内嵌 + esbuild + userscript banner) /
+- `scripts/` — `build.mjs` (源构建 wasm (引擎仓, `LOG_SKIMMER_WASM_SRC` 可覆盖)
+  → gzip+base64 内嵌 + esbuild + userscript banner) /
   `serve.mjs` (8801 静态服务, CORS 全开, `/_status/<code>/` 状态码仿真) /
   `make-local-bundle.mjs` (规则仓 checkout → fixtures bundle, dev 工具)。
-- `e2e/` — Playwright: `harness.ts` (GM shim + 注入) + 四个 spec (github 主链路+M1/M4 /
-  degrade 含 M2 自愈 / forgejo fixture (M3 grown/同数异容) / forgejo 活体) + `shots/` 交付截图。
+- `e2e/` — Playwright: `harness.ts` (GM shim + 注入) + 五个 spec (github 主链路+M1/M4 /
+  degrade 含 M2 自愈 / forgejo fixture (M3 grown/同数异容) / forgejo 活体 /
+  engine-version 版本协商专题) + `shots/` 交付截图。
 
 ## 实现约定
 
@@ -62,7 +64,7 @@
   `@connect raw.githubusercontent.com`)。
 - **零运行时依赖** — 产物不 import 任何 npm 包; 工具链全 devDependencies
   (版本 SSOT = package-lock.json, `npm ci` 复现)。devShell 只提供 node/just/jq/rg。
-- **userscript 产物**: 单文件 IIFE (生态约束), wasm gzip+base64 内嵌 (~0.74 MiB),
+- **userscript 产物**: 单文件 IIFE (生态约束), wasm gzip+base64 内嵌 (~0.75 MiB),
   `@version` SSOT = package.json (构建期注入 banner)。源码保持 ESM。
 - **TS 纪律**: 严格模式全开 (noUncheckedIndexedAccess / exactOptionalPropertyTypes);
   源码 import 一律带 `.ts` 扩展名 (node --test 直跑 + esbuild 双兼容); 单测只测纯逻辑
@@ -73,13 +75,13 @@
 
 ## 跨仓契约引用 (SSOT 均在对方仓, 此处只登记接口)
 
-| 契约                                                    | SSOT 位置                                               | 本仓消费点                                |
-| ------------------------------------------------------- | ------------------------------------------------------- | ----------------------------------------- |
-| wasm ABI (`alloc`/`free`/`skim_json`, 4B 前缀 envelope) | 引擎仓 `wasm-spike` (M1 正式化后替换)                   | `src/core/abi.ts` + `vendors/engine.wasm` |
-| 规则 bundle 格式 + 发布端点                             | rules 仓生成管线 (`reports` 分支)                       | `src/core/rules.ts` + `src/config.ts`     |
-| SkimResult JSON 协议                                    | 引擎仓 serde (CLI --json 同协议)                        | `src/types.ts`                            |
-| GitHub job 页 DOM 事实                                  | spike T3 DOM-REPORT (登录墙内未实测项见 github.ts TODO) | `src/adapters/github.ts`                  |
-| Forgejo v16 job 页 DOM 事实                             | spike T4 PROTO-REPORT (本地真实实例勘察)                | `src/adapters/forgejo.ts`                 |
+| 契约                                                                                | SSOT 位置                                               | 本仓消费点                                             |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------ |
+| wasm ABI (`wasm_alloc`/`wasm_free`/`wasm_skim_json`/`wasm_engine_version`, 4B 前缀) | 引擎仓 `log-skimmer-wasm` crate (feat-wasm 分支, M1)    | `src/core/abi.ts` + 构建期源构建 (`scripts/build.mjs`) |
+| 规则 bundle 格式 + 发布端点                                                         | rules 仓生成管线 (`reports` 分支)                       | `src/core/rules.ts` + `src/config.ts`                  |
+| SkimResult JSON 协议                                                                | 引擎仓 serde (CLI --json 同协议)                        | `src/types.ts`                                         |
+| GitHub job 页 DOM 事实                                                              | spike T3 DOM-REPORT (登录墙内未实测项见 github.ts TODO) | `src/adapters/github.ts`                               |
+| Forgejo v16 job 页 DOM 事实                                                         | spike T4 PROTO-REPORT (本地真实实例勘察)                | `src/adapters/forgejo.ts`                              |
 
 ## 已知未决 (登记在案的待办)
 
@@ -87,8 +89,9 @@
   `src/adapters/github.ts` 头部 TODO, fixture 已按已知语义 (文本行 ↔ data-index 一一对应) 建模。
 - GitHub 真实 DOM 的 cluster wrapper 选择器 (jumpTo 目前用 fixture 契约 `.lsk-cluster`) —
   同文件 TODO, 登录态实测后只改一处。
-- wasm 产物无 `engine_version` 导出 (spike 产物) — 版本协商用 host 侧 `ENGINE_VERSION`
-  常量 (config.ts); M1 产物就绪后按 `vendors/README.md` 升级步骤切换。
+- 构建期 wasm 源 = 引擎仓 feat-wasm worktree (临时路径, M1 未合入 master) —
+  生产 CI 自建源 (web 仓 CI 装 rust + wasm32 target checkout 引擎仓) 是切换点,
+  见 scripts/build.mjs 注释。
 - **forgejo 活体 e2e 依赖本地实例 (127.0.0.1:3999, T4 遗留), 不可达自动 skip —
   skip 后 forgejo 基本链路仍由 `fixtures/forgejo/` fixture e2e 兜底 (M3 起补齐:
   单源/对齐/grown/同数异容), 活体独有面 (Vue 渲染管线/懒加载交互) 缺口,

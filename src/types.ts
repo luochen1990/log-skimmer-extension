@@ -57,14 +57,16 @@ export interface SkimResult {
   stats: SkimStats
 }
 
-/** wasm skim_json 返回的 envelope。 */
+/** `wasm_skim_json` 导出返回的 envelope。 */
 export type SkimEnvelope = { ok: true; result: SkimResult } | { ok: false; error: string }
 
 // ---------- 规则 bundle 跨仓契约 ----------
-
+// format_version / min_engine_version 可省略 (SSOT = rules 仓生成管线:
+// "无则省略该键" — 规则集 manifest.yaml 未声明则 bundle 不携带, 消费侧放行,
+// 键省略语义与引擎侧 "无 manifest 照常装载" 一致); 携带时参与版本协商 (rules.ts)。
 export interface BundleManifest {
-  format_version: number
-  min_engine_version: string
+  format_version?: number
+  min_engine_version?: string
   rule_count: number
   generated_at: string
 }

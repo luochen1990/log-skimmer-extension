@@ -1,13 +1,16 @@
 // rules.ts — 规则 bundle 的取数/校验/缓存/刷新 (跨仓契约的消费侧)。
 // 契约: bundle 格式 SSOT = rules 仓生成管线 ({manifest, rules}, 见 src/config.ts URL);
 //       本模块只消费不定义。缓存 = GM storage (键 GM_KEYS.bundle), 版本协商 =
-//       manifest.format_version 严格匹配 + min_engine_version ≤ 本构建 ENGINE_VERSION。
+//       manifest.format_version 匹配 + min_engine_version ≤ wasm 侧引擎版本
+//       (版本来源 = abi.ts readEngineVersion, 非 host 常量 — M1 产物导出)。
+//       两键皆可省略 (契约 "无则省略该键"; 键省略时的放行与引擎侧
+//       "无 manifest 照常装载" 对齐 — 值的判读书两侧另有差异, 见函数内注释) —
+//       存在才协商, semver 解析失败 (缺段/非法) 按降级处理并报实际值。
 // 策略: cache-first (离线可用; bundle 是唯一网络依赖); 无缓存首拉失败 → 降级诊断;
 //       手动刷新失败 → 保留旧缓存继续工作。
 
 import {
   BUNDLE_FORMAT_VERSION,
-  ENGINE_VERSION,
   GM_KEYS,
   RULES_BUNDLE_URL,
   RULES_FETCH_TIMEOUT_MS,
@@ -43,20 +46,31 @@ export function validateBundle(
   const m = b.manifest
   if (typeof m !== 'object' || m === null) return { ok: false, reason: 'bundle.manifest missing' }
   const man = m as Record<string, unknown>
-  if (man.format_version !== BUNDLE_FORMAT_VERSION) {
+  // format_version 协商: 存在才检查 (含高于本构建 — 旧 userscript 读新格式);
+  // 缺失 = 规则集未声明格式版本, 放行 (键省略语义与引擎侧一致 — 注意判等口径
+  // 本仓比引擎严: 引擎判上界, 本处 !== 即拒, 防旧格式静默混入)。
+  if (man.format_version !== undefined && man.format_version !== BUNDLE_FORMAT_VERSION) {
     return {
       ok: false,
       reason: `bundle format_version ${String(man.format_version)} ≠ ${BUNDLE_FORMAT_VERSION} — update the userscript`,
     }
   }
-  if (typeof man.min_engine_version !== 'string') {
-    return { ok: false, reason: 'bundle.manifest.min_engine_version missing' }
-  }
-  const gte = semVerGte(engineVersion, man.min_engine_version)
-  if (gte !== true) {
-    return {
-      ok: false,
-      reason: `bundle requires engine ≥ ${man.min_engine_version} (this build: ${engineVersion}) — update the userscript`,
+  // min_engine_version 协商: 存在才检查; 类型损坏 (非 string) 同样拒收 —
+  // 该键的唯一职责是挡旧引擎, 损坏形态静默放行 = 升级门失效 (宁拒勿错);
+  // semver 任一侧不可解析 (null) 亦拒收, 文案报两侧实际值。
+  const minEngine: unknown = man.min_engine_version
+  if (minEngine !== undefined) {
+    if (typeof minEngine !== 'string') {
+      return {
+        ok: false,
+        reason: `bundle.manifest.min_engine_version is not a string: ${String(minEngine)}`,
+      }
+    }
+    if (semVerGte(engineVersion, minEngine) !== true) {
+      return {
+        ok: false,
+        reason: `bundle requires engine ≥ ${minEngine} (this build: ${engineVersion}) — update the userscript`,
+      }
     }
   }
   if (!Array.isArray(b.rules) || b.rules.length === 0) {
@@ -82,11 +96,12 @@ export function validateBundle(
     }
   }
   const manifest: BundleManifest = {
-    format_version: man.format_version,
-    min_engine_version: man.min_engine_version,
     rule_count: rules.length,
     generated_at: typeof man.generated_at === 'string' ? man.generated_at : '',
   }
+  // 可选键原样保留 (有则协商过, 无则不虚构)。
+  if (man.format_version !== undefined) manifest.format_version = man.format_version
+  if (typeof man.min_engine_version === 'string') manifest.min_engine_version = man.min_engine_version
   return { ok: true, bundle: { manifest, rules } }
 }
 
@@ -96,7 +111,11 @@ export function rulesJsonForWasm(bundle: RulesBundle): string {
 }
 
 export class RulesStore {
-  constructor(private readonly gm: GmEnv) {}
+  constructor(
+    private readonly gm: GmEnv,
+    /** wasm 侧引擎版本 (版本协商事实来源 — boot 时经 readEngineVersion 读取)。 */
+    private readonly engineVersion: string,
+  ) {}
 
   private async bundleUrl(): Promise<string> {
     return (await this.gm.getValue(GM_KEYS.bundleUrlOverride)) || RULES_BUNDLE_URL
@@ -111,7 +130,7 @@ export class RulesStore {
     } catch {
       return null // 缓存损坏视同无缓存
     }
-    const v = validateBundle(entry.bundle, ENGINE_VERSION)
+    const v = validateBundle(entry.bundle, this.engineVersion)
     if (!v.ok) return null // 缓存版本协商不过 (如用户降级了脚本) → 重拉
     const ageDays = (Date.now() - entry.fetchedAt) / 86_400_000
     return {
@@ -147,7 +166,7 @@ export class RulesStore {
     } catch {
       return { ok: false, diag: { stage: 'rules', message: `rules bundle at ${url} is not valid JSON` } }
     }
-    const v = validateBundle(json, ENGINE_VERSION)
+    const v = validateBundle(json, this.engineVersion)
     if (!v.ok) return { ok: false, diag: { stage: 'rules', message: `rules bundle rejected: ${v.reason}` } }
     const entry: CacheEntry = { bundle: v.bundle, fetchedAt: Date.now() }
     await this.gm.setValue(GM_KEYS.bundle, JSON.stringify(entry))
