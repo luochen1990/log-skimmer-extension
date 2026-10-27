@@ -1,7 +1,11 @@
 // overlay.ts — skim 视图 overlay (呈现双轨之主轨)。
-// 职责: 悬浮面板只渲染 skim 块 (intent 图标/颜色 + category 标签 + 行坐标 + context
-//       展开), 块间未匹配区折叠为 "⋯ N lines"; 与页面虚拟化/懒加载完全解耦
+// 职责: 悬浮面板只渲染 skim 块 (intent 图标/颜色 + category 标签 + 日志原文摘要 + 行坐标 +
+//       context 展开), 块间未匹配区折叠为 "⋯ N lines"; 与页面虚拟化/懒加载完全解耦
 //       (数据全量外置, 渲染不依赖行 DOM 在场)。
+// 隔离: 面板与 fab 均为 Shadow DOM host (#lsk-overlay/#lsk-fab, open root) — 样式与宿主页
+//       双向隔离 (根治 v0.1.3 宿主 CSS 吞字事故的架构面), 布局关键属性 (fixed/尺寸/z-index)
+//       以 inline style 落 host (页面样式表不可覆写), 内部样式经 tokens.ts 注入 shadow。
+//       Playwright CSS 引擎穿透 open shadow — 既有 e2e 选择器全部不变。
 // 降级呈现: 源级失败 (fetch 403/登录墙等) → 该源 tab 呈现错误框; 全局诊断 (规则/
 //       wasm 阶段) → 底部诊断条 (哪个环节/为什么/怎么办)。规则信息条含 stale 提示
 //       与手动刷新入口。
@@ -10,12 +14,27 @@
 import { APP_VERSION } from '../generated/version.ts'
 import type { Diag, Intent, OutputBlock, SkimResult } from '../types.ts'
 import { blockIntent, INTENT_META, topFragment } from './intent.ts'
+import { OVERLAY_TOKENS } from './tokens.ts'
 
 /** 静态自有元素查找 — 找不到即内部结构错误, 显式抛错优于静默。 */
 function must<T extends Element>(root: ParentNode, sel: string): T {
   const el = root.querySelector<T>(sel)
   if (!el) throw new Error(`[logskim] internal: ${sel} missing`)
   return el
+}
+
+/** intent → 工具类名 (shadow 内 .t-* 徽章配色, 见 tokens.ts)。 */
+function intentClass(it: Intent): string {
+  return `t-${it}`
+}
+
+/** 块摘要: 剥行首 ISO 时间戳前缀 + 收敛空白, 截断到 300 字符 (纯展示层)。 */
+function summaryOf(raw: string): string {
+  const s = raw
+    .replace(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return (s || raw.trim() || '(empty line)').slice(0, 300)
 }
 
 export interface OverlaySource {
@@ -43,9 +62,16 @@ export interface OverlayInit {
   pageCoords?: (block: OutputBlock) => string | null
 }
 
+/** host 元素布局关键属性 — inline style 落地 (页面样式表不可覆写, 宿主隔离的半边)。 */
+const HOST_LAYER = {
+  position: 'fixed',
+  zIndex: '2147483600',
+} as const
+
 export class SkimOverlay {
   private doc!: Document
-  private root!: HTMLDivElement
+  private root!: HTMLDivElement // #lsk-overlay host (布局在 host, 结构在 shadow)
+  private fabBadge!: HTMLElement
   private metaEl!: HTMLElement
   private rulesChip!: HTMLElement
   private tabsEl!: HTMLElement
@@ -60,91 +86,155 @@ export class SkimOverlay {
   mount(doc: Document): void {
     if (this.root) return
     this.doc = doc
-    const fab = doc.createElement('button')
+
+    // ---- fab: host div (布局 inline) + shadow 内按钮 (样式隔离) ----
+    const fab = doc.createElement('div')
     fab.id = 'lsk-fab'
-    fab.textContent = 'skim'
-    Object.assign(fab.style, {
-      position: 'fixed',
-      right: '16px',
-      bottom: '16px',
-      zIndex: '2147483600',
-      background: '#1f2328',
-      color: '#fff',
-      border: 'none',
-      borderRadius: '18px',
-      padding: '8px 16px',
-      font: '600 13px ui-sans-serif',
-      cursor: 'pointer',
-      boxShadow: '0 2px 8px rgba(0,0,0,.35)',
-    })
-    fab.onclick = () => this.toggle()
+    Object.assign(fab.style, HOST_LAYER, { right: '16px', bottom: '16px' })
+    const fabShadow = fab.attachShadow({ mode: 'open' })
+    fabShadow.innerHTML = `
+<style>
+${OVERLAY_TOKENS}
+button {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--lsk-fg); color: var(--lsk-bg);
+    border: none; border-radius: 999px; padding: 8px 16px;
+    font: 600 13px var(--lsk-sans); cursor: pointer;
+    box-shadow: var(--lsk-shadow);
+  }
+  button:hover { filter: brightness(1.15); }
+  .fab-n { display: none; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+    background: var(--lsk-failure-fg); color: #fff; font: 700 11px/18px var(--lsk-sans);
+    text-align: center; }
+  .fab-n.on { display: inline-block; }
+</style>
+<button><span>skim</span><span class="fab-n"></span></button>`
+    const fabBtn = must<HTMLButtonElement>(fabShadow, 'button')
+    this.fabBadge = must<HTMLElement>(fabShadow, '.fab-n')
+    fabBtn.onclick = () => this.toggle()
     doc.body.appendChild(fab)
 
-    const css = doc.createElement('style')
-    css.textContent = `
-#lsk-overlay { position:fixed; right:16px; top:16px; bottom:64px; width:560px; z-index:2147483600; display:none;
-  flex-direction:column; background:#fff; color:#1f2328; border-radius:10px; border:1px solid #d1d9e0;
-  box-shadow:0 8px 32px rgba(0,0,0,.3); font:12px/1.5 ui-sans-serif,system-ui; }
-#lsk-overlay .lsk-hd { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid #d1d9e0; flex-wrap:wrap; }
-#lsk-overlay .lsk-hd b { font-size:13px; }
-#lsk-overlay .lsk-meta { color:#57606a; font:11px ui-monospace,monospace; }
-#lsk-overlay .lsk-ver { color:#82460a; font:11px ui-monospace,monospace; }
-#lsk-overlay .lsk-hd .lsk-sp { margin-left:auto; display:flex; gap:4px; align-items:center; }
-#lsk-overlay .lsk-tabs { display:flex; gap:4px; padding:6px 14px 0; flex-wrap:wrap; }
-#lsk-overlay .lsk-bd { overflow:auto; flex:1; padding:6px 0; }
-#lsk-overlay .lsk-blk { padding:7px 14px; }
-#lsk-overlay .lsk-blk.sel { outline: 2px solid #0969da; outline-offset:-2px; }
-#lsk-overlay .lsk-row { display:flex; align-items:center; gap:8px; cursor:pointer; }
-#lsk-overlay .lsk-row:hover { background:#f6f8fa; }
-#lsk-overlay .lsk-ic { width:18px; height:18px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; font:700 11px ui-monospace; flex:none; }
-#lsk-overlay .lsk-cat { font:600 10px ui-sans-serif; padding:1px 7px; border-radius:9px; }
-#lsk-overlay .lsk-lines { color:#57606a; font:11px ui-monospace,monospace; margin-left:auto; flex:none; }
-#lsk-overlay .lsk-ctx { display:none; margin:6px 0 0 26px; padding:6px 10px; background:#f6f8fa; border-radius:6px;
-  font:11px/1.45 ui-monospace,monospace; white-space:pre-wrap; word-break:break-all; max-height:180px; overflow:auto; }
-#lsk-overlay .lsk-blk.open .lsk-ctx { display:block; }
-#lsk-overlay .lsk-gap { text-align:center; color:#8c959f; font:11px ui-monospace,monospace; padding:2px 0; user-select:none; }
-#lsk-overlay button.lsk-mini { font:11px ui-sans-serif; padding:3px 10px; border:1px solid #d1d9e0; border-radius:6px; background:#fff; color:#24292f; cursor:pointer; }
-#lsk-overlay button.lsk-mini:hover { background:#f6f8fa; }
-#lsk-overlay button.lsk-mini.on { background:#ddf4ff; border-color:#0969da; color:#0969da; }
-#lsk-overlay .lsk-chip { font:10px ui-monospace,monospace; color:#57606a; padding:2px 7px; border:1px solid #d1d9e0; border-radius:9px; }
-#lsk-overlay .lsk-chip.stale { background:#fff8c5; border-color:#9a6700; color:#82460a; }
-#lsk-overlay .lsk-err { margin:10px 14px; padding:10px 12px; background:#ffebe9; border:1px solid #cf222e;
-  border-radius:8px; font:11px/1.5 ui-monospace,monospace; white-space:pre-wrap; }
-#lsk-overlay .lsk-diags { border-top:1px solid #d1d9e0; padding:6px 14px; display:none; max-height:120px; overflow:auto; }
-#lsk-overlay .lsk-diags .lsk-diag { padding:3px 0; font:11px/1.4 ui-sans-serif; }
-#lsk-overlay .lsk-diags .lsk-diag b { color:#cf222e; }
-#lsk-overlay .lsk-diags .lsk-diag .lsk-hint { color:#57606a; display:block; }`
-    doc.head.appendChild(css)
-
+    // ---- overlay: host div + shadow 面板 ----
     const p = doc.createElement('div')
     p.id = 'lsk-overlay'
-    p.innerHTML = `
-<div class="lsk-hd"><b>skim</b> <span class="lsk-ver" title="extension build version — chrome://extensions card must match">v${APP_VERSION}</span> <span class="lsk-meta" id="lsk-meta"></span>
-  <span class="lsk-sp">
+    Object.assign(p.style, HOST_LAYER, {
+      right: '16px',
+      top: '16px',
+      bottom: '64px',
+      width: 'min(560px, calc(100vw - 32px))',
+      display: 'none',
+    })
+    const shadow = p.attachShadow({ mode: 'open' })
+    shadow.innerHTML = `
+<style>
+${OVERLAY_TOKENS}
+* { box-sizing: border-box; }
+.panel {
+  width: 100%; height: 100%; display: flex; flex-direction: column;
+  background: var(--lsk-bg); color: var(--lsk-fg);
+  border: 1px solid var(--lsk-border); border-radius: var(--lsk-r-lg);
+  box-shadow: var(--lsk-shadow);
+  font: 12px/1.5 var(--lsk-sans); overflow: hidden;
+}
+/* ---- 头部: 品牌行 / meta 行 / tabs 行 三层 ---- */
+.lsk-hd { display: flex; align-items: center; gap: 8px; padding: 10px 14px 6px; }
+.lsk-brand { font: 700 13px var(--lsk-sans); letter-spacing: .2px; display: inline-flex; align-items: center; gap: 6px; }
+.lsk-brand::before { content: '≋'; color: var(--lsk-accent); font-size: 15px; }
+.lsk-ver { color: var(--lsk-fg-faint); font: 11px var(--lsk-mono); }
+.lsk-sp { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.lsk-metaline { display: flex; align-items: center; gap: 8px; padding: 0 14px 8px; border-bottom: 1px solid var(--lsk-border-soft); min-height: 24px; }
+.lsk-meta { color: var(--lsk-fg-dim); font: 11px var(--lsk-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lsk-meta b { color: var(--lsk-fg); font-weight: 600; }
+.lsk-tabs { display: flex; gap: 6px; padding: 8px 14px 0; overflow-x: auto; scrollbar-width: thin; flex: none; }
+.lsk-tabs::-webkit-scrollbar { height: 4px; }
+.lsk-tabs:empty { display: none; }
+/* ---- 控件 ---- */
+button.lsk-mini { font: 11px var(--lsk-sans); font-weight: 500; padding: 3px 10px; border: 1px solid var(--lsk-border);
+  border-radius: var(--lsk-r-sm); background: var(--lsk-bg); color: var(--lsk-fg); cursor: pointer; white-space: nowrap; }
+button.lsk-mini:hover { background: var(--lsk-bg-soft); }
+button.lsk-mini.on { background: var(--lsk-accent-soft); border-color: var(--lsk-accent); color: var(--lsk-accent); }
+button.lsk-mini:disabled { opacity: .5; cursor: default; }
+button.lsk-iconbtn { border: none; background: transparent; color: var(--lsk-fg-dim); cursor: pointer;
+  font: 13px var(--lsk-sans); padding: 2px 6px; border-radius: var(--lsk-r-sm); }
+button.lsk-iconbtn:hover { background: var(--lsk-bg-soft); color: var(--lsk-fg); }
+/* ---- tabs: 横向滚动 chip, intent 计数徽标 ---- */
+.lsk-tab { display: inline-flex; align-items: center; gap: 6px; max-width: 200px;
+  font: 11px var(--lsk-sans); padding: 3px 10px; border: 1px solid var(--lsk-border);
+  border-radius: 999px; background: var(--lsk-bg); color: var(--lsk-fg-dim); cursor: pointer; white-space: nowrap; }
+.lsk-tab .lbl { overflow: hidden; text-overflow: ellipsis; }
+.lsk-tab:hover { border-color: var(--lsk-fg-faint); color: var(--lsk-fg); }
+.lsk-tab.on { background: var(--lsk-accent-soft); border-color: var(--lsk-accent); color: var(--lsk-accent); font-weight: 600; }
+.lsk-tab .n { display: none; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px;
+  font: 700 10px/16px var(--lsk-sans); text-align: center; }
+.lsk-tab .n.on { display: inline-block; }
+/* ---- 块列表 ---- */
+.lsk-bd { overflow: auto; flex: 1; padding: 6px 0 10px; overscroll-behavior: contain; }
+.lsk-blk { padding: 2px 14px; }
+.lsk-blk.sel { outline: 2px solid var(--lsk-accent); outline-offset: -2px; border-radius: var(--lsk-r-sm); }
+.lsk-row { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 6px; border-radius: var(--lsk-r-md); }
+.lsk-row:hover { background: var(--lsk-bg-soft); }
+.lsk-ic { width: 18px; height: 18px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center;
+  font: 700 11px var(--lsk-mono); flex: none; }
+.lsk-cat { font: 600 10px var(--lsk-sans); padding: 1px 8px; border-radius: 999px; flex: none; letter-spacing: .3px; }
+.lsk-sum { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 11px var(--lsk-mono); color: var(--lsk-fg); }
+.lsk-lines { color: var(--lsk-fg-dim); font: 11px var(--lsk-mono); margin-left: auto; flex: none;
+  background: var(--lsk-bg-soft); border-radius: var(--lsk-r-sm); padding: 1px 7px; }
+.lsk-ctx { display: none; margin: 2px 0 4px 28px; padding: 7px 10px; background: var(--lsk-bg-soft);
+  border: 1px solid var(--lsk-border-soft); border-radius: var(--lsk-r-sm);
+  font: 11px/1.5 var(--lsk-mono); white-space: pre-wrap; word-break: break-all; max-height: 180px; overflow: auto; }
+.lsk-blk.open .lsk-ctx { display: block; }
+/* ---- 折叠 gap: 居中徽章 + 两侧发丝线, 与块行明确分层 ---- */
+.lsk-gap { display: flex; align-items: center; gap: 8px; margin: 2px 14px; color: var(--lsk-fg-faint);
+  font: 10px var(--lsk-mono); user-select: none; }
+.lsk-gap::before, .lsk-gap::after { content: ''; flex: 1; height: 1px; background: var(--lsk-border-soft); }
+/* ---- 错误框 / 诊断条 ---- */
+.lsk-err { margin: 10px 14px; padding: 10px 12px; background: var(--lsk-failure-bg); color: var(--lsk-failure-fg);
+  border: 1px solid var(--lsk-failure-fg); border-radius: var(--lsk-r-md);
+  font: 11px/1.5 var(--lsk-mono); white-space: pre-wrap; }
+.lsk-diags { border-top: 1px solid var(--lsk-border); padding: 6px 14px; display: none; max-height: 120px; overflow: auto;
+  background: var(--lsk-bg-soft); flex: none; }
+.lsk-diags .lsk-diag { padding: 3px 0; font: 11px/1.4 var(--lsk-sans); }
+.lsk-diags .lsk-diag b { color: var(--lsk-failure-fg); font-weight: 600; }
+.lsk-diags .lsk-diag .lsk-hint { color: var(--lsk-fg-dim); display: block; }
+/* ---- rules chip ---- */
+.lsk-chip { font: 10px var(--lsk-mono); color: var(--lsk-fg-dim); padding: 1px 8px; border: 1px solid var(--lsk-border);
+  border-radius: 999px; white-space: nowrap; margin-left: auto; }
+.lsk-chip.stale { background: var(--lsk-warning-bg); border-color: var(--lsk-warning-fg); color: var(--lsk-warning-fg); }
+</style>
+<div class="panel">
+  <div class="lsk-hd">
+    <span class="lsk-brand">skim</span> <span class="lsk-ver" title="extension build version — chrome://extensions card must match">v${APP_VERSION}</span>
+    <span class="lsk-sp">
+      <button class="lsk-mini" id="lsk-refresh" title="refresh rules bundle (re-skim)">⟳ rules</button>
+      <button class="lsk-mini on" id="lsk-inline-btn" title="toggle inline annotations">inline: on</button>
+      <button class="lsk-iconbtn" id="lsk-close" title="close panel">✕</button>
+    </span>
+  </div>
+  <div class="lsk-metaline">
+    <span class="lsk-meta" id="lsk-meta"></span>
     <span class="lsk-chip" id="lsk-rules-chip" title="rules bundle"></span>
-    <button class="lsk-mini" id="lsk-refresh" title="refresh rules bundle (re-skim)">⟳ rules</button>
-    <button class="lsk-mini on" id="lsk-inline-btn" title="toggle inline annotations">inline: on</button>
-    <button class="lsk-mini" id="lsk-close">✕</button>
-  </span></div>
-<div class="lsk-tabs" id="lsk-tabs"></div>
-<div class="lsk-bd" id="lsk-body"></div>
-<div class="lsk-diags" id="lsk-diags"></div>`
+  </div>
+  <div class="lsk-tabs" id="lsk-tabs"></div>
+  <div class="lsk-bd" id="lsk-body"></div>
+  <div class="lsk-diags" id="lsk-diags"></div>
+</div>`
     doc.body.appendChild(p)
     this.root = p
-    this.metaEl = must<HTMLElement>(p, '#lsk-meta')
-    this.rulesChip = must<HTMLElement>(p, '#lsk-rules-chip')
-    this.tabsEl = must<HTMLElement>(p, '#lsk-tabs')
-    this.bodyEl = must<HTMLElement>(p, '#lsk-body')
-    this.diagEl = must<HTMLElement>(p, '#lsk-diags')
-    must<HTMLButtonElement>(p, '#lsk-close').onclick = () => this.toggle()
-    const refreshBtn = must<HTMLButtonElement>(p, '#lsk-refresh')
+    this.metaEl = must<HTMLElement>(shadow, '#lsk-meta')
+    this.rulesChip = must<HTMLElement>(shadow, '#lsk-rules-chip')
+    this.tabsEl = must<HTMLElement>(shadow, '#lsk-tabs')
+    this.bodyEl = must<HTMLElement>(shadow, '#lsk-body')
+    this.diagEl = must<HTMLElement>(shadow, '#lsk-diags')
+    must<HTMLButtonElement>(shadow, '#lsk-close').onclick = () => this.toggle()
+    const refreshBtn = must<HTMLButtonElement>(shadow, '#lsk-refresh')
     refreshBtn.onclick = () => {
       refreshBtn.disabled = true // pending (n8): 落定前禁用, 防重复刷新
       void this.init.onRefreshRules().finally(() => {
         refreshBtn.disabled = false
       })
     }
-    const inlineBtn = must<HTMLButtonElement>(p, '#lsk-inline-btn')
+    const inlineBtn = must<HTMLButtonElement>(shadow, '#lsk-inline-btn')
     inlineBtn.onclick = () => {
       this.inlineOn = !this.inlineOn
       inlineBtn.textContent = `inline: ${this.inlineOn ? 'on' : 'off'}`
@@ -154,23 +244,48 @@ export class SkimOverlay {
   }
 
   toggle(): void {
-    const open = this.root.style.display !== 'flex'
-    this.root.style.display = open ? 'flex' : 'none'
+    const open = this.root.style.display === 'none'
+    this.root.style.display = open ? 'block' : 'none'
   }
 
   /** 强制打开 (致命降级路径自动呈现诊断)。 */
   open(): void {
-    this.root.style.display = 'flex'
+    this.root.style.display = 'block'
   }
 
-  /** 多源渲染入口 (forgejo=整 job 单源 / github=每 step 一源); 失败源呈现错误框。 */
+  /** 多源渲染入口 (forgejo=整 job 单源 / github=每 step 一源); 失败源呈现错误框。
+   *  附带: fab 失败计数徽标 (全源 failure 块计数, 一眼可见)。 */
   renderSources(sources: OverlaySource[]): void {
     this.sources = sources
+    let failures = 0
+    for (const s of sources) {
+      for (const b of s.result?.blocks ?? []) if (blockIntent(b) === 'failure') failures++
+    }
+    this.fabBadge.textContent = String(failures)
+    this.fabBadge.classList.toggle('on', failures > 0)
+
     this.tabsEl.innerHTML = ''
     sources.forEach((s, i) => {
       const t = this.doc.createElement('button')
-      t.className = 'lsk-mini'
-      t.textContent = s.label
+      t.className = 'lsk-tab'
+      const lbl = this.doc.createElement('span')
+      lbl.className = 'lbl'
+      lbl.textContent = s.label
+      t.appendChild(lbl)
+      // intent 计数徽标: 块主 intent 的数量 (失败/警告一眼可辨)
+      const counts = new Map<Intent, number>()
+      for (const b of s.result?.blocks ?? []) {
+        const it = blockIntent(b)
+        counts.set(it, (counts.get(it) ?? 0) + 1)
+      }
+      for (const it of ['failure', 'warning'] as const) {
+        const n = counts.get(it) ?? 0
+        if (n === 0) continue
+        const badge = this.doc.createElement('span')
+        badge.className = `n ${intentClass(it)} on`
+        badge.textContent = String(n)
+        t.appendChild(badge)
+      }
       t.onclick = () => this.selectSource(i)
       this.tabsEl.appendChild(t)
     })
@@ -213,7 +328,12 @@ export class SkimOverlay {
     const countStr = (Object.entries(counts) as Array<[Intent, number]>)
       .map(([k, v]) => `${v} ${k}`)
       .join(' · ')
-    this.metaEl.textContent = `${fileName} · ${result.input_lines}→${result.output_lines} lines (-${comp}%) · ${countStr}`
+    this.metaEl.innerHTML = ''
+    const file = this.doc.createElement('b')
+    file.textContent = fileName
+    const stat = this.doc.createElement('span')
+    stat.textContent = ` · ${result.input_lines}→${result.output_lines} lines (-${comp}%) · ${countStr}`
+    this.metaEl.append(file, stat)
 
     const body = this.bodyEl
     body.innerHTML = ''
@@ -237,7 +357,7 @@ export class SkimOverlay {
 
   private blockEl(blk: OutputBlock, lines: string[]): HTMLElement {
     const frag = topFragment(blk)
-    const it = INTENT_META[frag?.intent ?? 'info']
+    const it = frag?.intent ?? 'info'
     const el = this.doc.createElement('div')
     el.className = 'lsk-blk'
     el.dataset.lskBlock = String(blk.start_line)
@@ -245,22 +365,23 @@ export class SkimOverlay {
     const row = this.doc.createElement('div')
     row.className = 'lsk-row'
     const ic = this.doc.createElement('span')
-    ic.className = 'lsk-ic'
-    Object.assign(ic.style, { background: it.bg, color: it.color })
-    ic.textContent = it.icon
+    ic.className = `lsk-ic ${intentClass(it)}`
+    ic.textContent = INTENT_META[it].icon
     const cat = this.doc.createElement('span')
-    cat.className = 'lsk-cat'
-    Object.assign(cat.style, { background: it.bg, color: it.color })
+    cat.className = `lsk-cat ${intentClass(it)}`
     cat.textContent = frag?.category ?? '?'
-    const rule = this.doc.createElement('span')
-    rule.style.cssText = 'color:#57606a;font:11px ui-monospace,monospace'
-    rule.textContent = blk.fragments.map((f) => f.rule).join(' ') // 多规则块全展示
+    // 原文摘要 (块首行) — 用户不展开 context 即可识别错误; rule id 降为 title 提示。
+    // 摘要剥行首 ISO 时间戳前缀 (语料实形态: 时间戳占半行, 淹没错误正文; 仅展示层剥离)。
+    const sum = this.doc.createElement('span')
+    sum.className = 'lsk-sum'
+    sum.textContent = summaryOf(lines[blk.start_line - 1] ?? '')
+    sum.title = `rules: ${blk.fragments.map((f) => f.rule).join(', ')}`
     const ln = this.doc.createElement('span')
     ln.className = 'lsk-lines'
     const page = this.init.pageCoords?.(blk) ?? null
     ln.textContent = page ?? `L${blk.start_line}${blk.end_line > blk.start_line ? `-${blk.end_line}` : ''}`
     if (page) ln.title = `source L${blk.start_line}-${blk.end_line}`
-    row.append(ic, cat, rule, ln)
+    row.append(ic, cat, sum, ln)
     const ctx = this.doc.createElement('div')
     ctx.className = 'lsk-ctx'
     ctx.textContent = lines.slice(blk.start_line - 1, blk.end_line).join('\n')
