@@ -97,3 +97,31 @@ test('同数异容 (m5): 行数不变内容变 → 指纹哨兵仍触发整池�
   expect(await page.locator('.lsk-inline').count()).toBeGreaterThan(0)
   await context.close()
 })
+
+test('data-run-id 缺失 (生产 M4 形态) → run_number 反查解析真实 id (禁止序号直拼)', async ({ browser }) => {
+  // 剥掉 DOM 内嵌 id → 解析链必须走 /actions/runs?run_number=1 → entries[0].id=4242;
+  // 若退回 URL 序号直拼, 请求落 runs/1/jobs (无 route) → 源失败 → 测试红。
+  const { context, page } = await newSkimPage(browser)
+  await context.route('**/actions/runs?run_number=1*', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ total_count: 1, entries: [{ id: 4242, index: 1 }] }),
+    }),
+  )
+  await context.route(JOBS_API, (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify([{ id: 7, name: 'fixture-job' }]),
+    }),
+  )
+  await context.route(LOGS_API, (route) => route.fulfill({ contentType: 'text/plain', body: LOG_TEXT }))
+  await page.goto(FORGEJO_FIXTURE)
+  await page.waitForFunction('window.__fjSim && window.__fjSim.rendered >= 80')
+  await page.evaluate(() => document.querySelector('#repo-action-view')?.removeAttribute('data-run-id'))
+  await injectUserscript(page)
+  await waitReady(page)
+  const report = await getReport(page)
+  expect(report.adapter).toBe('forgejo')
+  expect(report.sources[0]).toMatchObject({ ok: true, blocks: 10 })
+  await context.close()
+})

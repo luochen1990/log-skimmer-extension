@@ -5,7 +5,7 @@
 //   step 懒加载: 点折叠头才渲染该 step 行 (无虚拟化, 展开后全量在场, 多 step 可共存);
 //   收起/展开不销毁行 DOM (注入属性存活, 无需重放)
 //   全量数据: GET /api/v1/repos/{o}/{r}/actions/jobs/{job_id}/logs (纯文本; job_id 经
-//             /actions/runs/{id}/jobs 列表按下标映射 — id 必须是内部主键, 见 runApiId)
+//             /actions/runs/{id}/jobs 列表按下标映射 — id 解析链见 resolveRunApiId)
 // 坐标映射: skim 块在全量日志行坐标; DOM 行是 step 内局部行号 → alignStep 两指针对齐
 //           (contentAligned: 行数变化 = 对齐失效, 增量 sync 整池重对齐)。
 
@@ -46,14 +46,30 @@ export function parseForgejoLoc(loc: Location): {
 }
 
 /**
- * run 的 API id: forgejo 双 ID 体系 — 页面 URL 用展示序号 Index (GetRunByIndex),
- * API 端点用内部主键 ID (GetRunByID), v16.0.5 源码实证, 长寿实例必然分叉 (生产
- * 实测 207↔22068, 拿序号拼 API 必 404)。#repo-action-view[data-run-id] 是 SSR 内嵌
- * 的真实 ID (唯一可靠来源); 缺席时退回 URL 序号 (首 run 实例两者恰好一致)。
+ * run 的 API id 解析 (双 ID 体系: 页面 URL = 展示序号 Index, API = 内部主键 ID —
+ * GetRunByIndex vs GetRunByID, v16.0.5 源码实证, 长寿实例必然分叉, 生产 207↔22044)。
+ * ① DOM: #repo-action-view[data-run-id] (SSR 内嵌真实 ID, 零网络);
+ * ② API: GET /actions/runs?run_number={index} (ListActionRuns 支持序号过滤) 反查。
+ * 禁止 URL 序号直拼 API (分叉实例必 404 — M4 生产实测)。
  */
-function runApiId(doc: Document, loc: Location): string {
-  const id = doc.querySelector('#repo-action-view')?.getAttribute('data-run-id')
-  return id || parseForgejoLoc(loc).runId
+async function resolveRunApiId(
+  doc: Document,
+  owner: string,
+  repo: string,
+  urlIndex: string,
+): Promise<string> {
+  const domId = doc.querySelector('#repo-action-view')?.getAttribute('data-run-id')
+  if (domId) return domId
+  const resp = await fetch(`/api/v1/repos/${owner}/${repo}/actions/runs?run_number=${urlIndex}`, {
+    credentials: 'same-origin',
+    signal: AbortSignal.timeout(LOG_FETCH_TIMEOUT_MS),
+  })
+  if (!resp.ok) throw new Error(`resolve run ${urlIndex} via run_number lookup → ${resp.status}`)
+  const data: unknown = await resp.json()
+  const entries = Array.isArray(data) ? data : ((data as { entries?: unknown[] }).entries ?? [])
+  const id = (entries[0] as { id?: number } | undefined)?.id
+  if (!Number.isInteger(id)) throw new Error(`run_number=${urlIndex} resolved to no runs`)
+  return String(id)
 }
 
 /** 行元素 → [{no, text, el}] (no = step 内局部行号, 取自 id, 1-based; 非 jobstep-N-M id 滤除)。 */
@@ -82,8 +98,8 @@ export const forgejoAdapter = {
 
   /** 全量日志源: 整 job 单源 (jobIndex → job_id 经 API 列表下标映射, 匿名可读公开仓)。 */
   async logSources(doc: Document, loc: Location) {
-    const { owner, repo, jobIndex } = parseForgejoLoc(loc)
-    const runId = runApiId(doc, loc)
+    const { owner, repo, runId: urlIndex, jobIndex } = parseForgejoLoc(loc)
+    const runId = await resolveRunApiId(doc, owner, repo, urlIndex)
     const resp = await fetch(`/api/v1/repos/${owner}/${repo}/actions/runs/${runId}/jobs`, {
       credentials: 'same-origin',
       signal: AbortSignal.timeout(LOG_FETCH_TIMEOUT_MS),
