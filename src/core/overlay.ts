@@ -101,7 +101,8 @@ export class SkimOverlay {
   font:11px/1.45 ui-monospace,monospace; white-space:pre-wrap; word-break:break-all; max-height:180px; overflow:auto; }
 #lsk-overlay .lsk-blk.open .lsk-ctx { display:block; }
 #lsk-overlay .lsk-gap { text-align:center; color:#8c959f; font:11px ui-monospace,monospace; padding:2px 0; user-select:none; }
-#lsk-overlay button.lsk-mini { font:11px ui-sans-serif; padding:3px 10px; border:1px solid #d1d9e0; border-radius:6px; background:#fff; cursor:pointer; }
+#lsk-overlay button.lsk-mini { font:11px ui-sans-serif; padding:3px 10px; border:1px solid #d1d9e0; border-radius:6px; background:#fff; color:#24292f; cursor:pointer; }
+#lsk-overlay button.lsk-mini:hover { background:#f6f8fa; }
 #lsk-overlay button.lsk-mini.on { background:#ddf4ff; border-color:#0969da; color:#0969da; }
 #lsk-overlay .lsk-chip { font:10px ui-monospace,monospace; color:#57606a; padding:2px 7px; border:1px solid #d1d9e0; border-radius:9px; }
 #lsk-overlay .lsk-chip.stale { background:#fff8c5; border-color:#9a6700; color:#82460a; }
