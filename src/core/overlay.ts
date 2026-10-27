@@ -7,6 +7,7 @@
 //       与手动刷新入口。
 // 联动: 块/行点击 → onJump(block) 回调 (controller 接 adapter 滚动原生流内对应行)。
 
+import { APP_VERSION } from '../generated/version.ts'
 import type { Diag, Intent, OutputBlock, SkimResult } from '../types.ts'
 import { blockIntent, INTENT_META, topFragment } from './intent.ts'
 
@@ -85,6 +86,7 @@ export class SkimOverlay {
 #lsk-overlay .lsk-hd { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid #d1d9e0; flex-wrap:wrap; }
 #lsk-overlay .lsk-hd b { font-size:13px; }
 #lsk-overlay .lsk-meta { color:#57606a; font:11px ui-monospace,monospace; }
+#lsk-overlay .lsk-ver { color:#82460a; font:11px ui-monospace,monospace; }
 #lsk-overlay .lsk-hd .lsk-sp { margin-left:auto; display:flex; gap:4px; align-items:center; }
 #lsk-overlay .lsk-tabs { display:flex; gap:4px; padding:6px 14px 0; flex-wrap:wrap; }
 #lsk-overlay .lsk-bd { overflow:auto; flex:1; padding:6px 0; }
@@ -114,7 +116,7 @@ export class SkimOverlay {
     const p = doc.createElement('div')
     p.id = 'lsk-overlay'
     p.innerHTML = `
-<div class="lsk-hd"><b>skim</b> <span class="lsk-meta" id="lsk-meta"></span>
+<div class="lsk-hd"><b>skim</b> <span class="lsk-ver" title="extension build version — chrome://extensions card must match">v${APP_VERSION}</span> <span class="lsk-meta" id="lsk-meta"></span>
   <span class="lsk-sp">
     <span class="lsk-chip" id="lsk-rules-chip" title="rules bundle"></span>
     <button class="lsk-mini" id="lsk-refresh" title="refresh rules bundle (re-skim)">⟳ rules</button>
