@@ -109,7 +109,9 @@ async function scrollToIndex(page: import('@playwright/test').Page, idx: number)
 test.describe('MV3 扩展 — 严格 CSP 页主链路 (回归锚)', () => {
   test('isolated world 不受页面 CSP 约束: wasm 编译 + overlay 呈现 + 流内高亮', async () => {
     test.setTimeout(90_000)
-    const userDataDir = fs.mkdtempSync('/tmp/opencode/lsk-ext-profile-')
+    const tmpBase = process.env.LSK_TMPDIR ?? '/tmp/opencode' // 沙箱逃生口: /tmp 不可写时指定它处
+    fs.mkdirSync(tmpBase, { recursive: true })
+    const userDataDir = fs.mkdtempSync(`${tmpBase}/lsk-ext-profile-`)
     // channel:'chromium' = new headless — 支持 --load-extension (默认 headless shell 不支持);
     // 遇阻降级 headed 的记录见 AGENTS.md 验证链。
     const context = await chromium.launchPersistentContext(userDataDir, {

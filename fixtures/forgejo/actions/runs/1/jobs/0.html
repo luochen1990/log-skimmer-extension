@@ -46,6 +46,9 @@
       // fixture 简化为同步渲染, DOM 增长形态一致, replay 路径相同)。
       // 日志基底 = github fixture 的真实失败样本 (1172 行, 10 块), 行 id 局部 1-based。
       const FOLD = new URLSearchParams(location.search).has('fold')
+      // 真实 forgejo 语义: 收起 step 的 logs 容器 display:none (非"空容器可见")。
+      // foldables 的展开守卫按可见性判别 (防把展开加载中的段点回收起), fixture 须同构。
+      if (FOLD) document.getElementById('logs-0').style.display = 'none'
       const INITIAL = 80
       const CHUNK = 120
       // rewrite 目标段取失败块密集区 (L960+): 同数异容重对齐后注入可观测
@@ -96,6 +99,7 @@
         if (opened) return
         opened = true
         window.__fjSim.opened++
+        document.getElementById('logs-0').style.display = '' // 真实 forgejo: 展开 = 容器恢复可见
         appendLines(INITIAL)
       })
 

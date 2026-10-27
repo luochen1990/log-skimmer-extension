@@ -81,6 +81,12 @@ test.describe('forgejo (确定性整池, 无虚拟化)', () => {
     expect(await page.locator('.lsk-inline').count()).toBeGreaterThan(0)
     // 折叠 pass 在展开后的池上照常生效
     expect(await page.locator('.lsk-fold-ph').count()).toBe(1)
+    // 面板标签时序洞回归锚: boot 时 step 收起 → aligns 后填 → 标签须刷新为页面坐标 (sN:L…)
+    await expect
+      .poll(async () =>
+        (await page.locator('#lsk-overlay .lsk-lines').allTextContents()).some((t) => /^s\d+:L\d+/.test(t)),
+      )
+      .toBe(true)
     await context.close()
   })
 

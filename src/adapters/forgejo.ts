@@ -205,8 +205,11 @@ export const forgejoAdapter = {
     if (!probe.hasHiddenHit()) return []
     const sections = [...doc.querySelectorAll<HTMLElement>('.job-step-section')]
     return sections.flatMap((sec, i) => {
-      const logs = sec.querySelector('.job-step-logs')
-      if (logs?.querySelector('.job-log-line')) return [] // 已渲染 (行在场)
+      const logs = sec.querySelector<HTMLElement>('.job-step-logs')
+      if (!logs) return []
+      // 容器可见即不点击 (click 是 toggle 而非 ensure-open): 已展开/展开中行未渲染的加载窗
+      // 盲点会把加载中的段点回收起 (活体实测竞态)。收起 = display:none → offsetParent null。
+      if (logs.offsetParent !== null) return []
       const summary = sec.querySelector<HTMLElement>('.job-step-summary')
       if (!summary) return []
       return [{ key: `fj-step:${sec.id || i}`, expand: () => summary.click() }]

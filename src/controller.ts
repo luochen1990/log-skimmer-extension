@@ -244,6 +244,21 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
     return engine.skim(text, fileName)
   }
 
+  // ---- 面板标签时序洞修补: aligns (页面坐标输入) 后填 ----
+  // 活体 forgejo 页 boot 时 step 全收起 → 首渲染 aligns 空 → pageCoords 只能给源坐标;
+  // autoExpand 展开后 aligns 填充, 须重渲染面板让行号标签转为页面坐标 (fixture 曾测不出:
+  // 其 step 在 boot 前已渲染, aligns 天然先于首渲染)。
+  let alignsRendered = 0
+  let rerenderTimer: ReturnType<typeof setTimeout> | null = null
+  /** 防抖重渲染面板源列表 (重放风暴合并为一次; 渲染本身不再增长 aligns, 无环路)。 */
+  function scheduleSourcesRerender(): void {
+    if (rerenderTimer !== null) return
+    rerenderTimer = setTimeout(() => {
+      rerenderTimer = null
+      renderLoadedSources()
+    }, 150)
+  }
+
   // ---- 呈现轨 ②: 流内注入 (幂等 sync; 初始 pass 与 observer 重放共用同一函数) ----
   function syncInline(opts: { replay?: boolean; mutations?: MutationRecord[] } = {}): void {
     if (!injector.enabled) {
@@ -342,6 +357,7 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
     report.sync.linesExamined += examined
     report.sync.lastExamined = examined
     report.inline = { ...injector.stats, enabled: true }
+    if (ctx.aligns.size > alignsRendered) scheduleSourcesRerender()
   }
 
   /** 存在未被任何已对齐池段覆盖的命中行 (forgejo 未渲染 step 的自动展开判定)。 */
@@ -494,8 +510,9 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
     }
   }
 
-  /** 已装载源 → overlay 呈现 (boot 与 reskimAll 共用)。 */
+  /** 已装载源 → overlay 呈现 (boot 与 reskimAll 共用; alignsRendered 对齐 = pageCoords 输入快照)。 */
   function renderLoadedSources(): void {
+    alignsRendered = ctx.aligns.size
     overlay.renderSources(
       loaded.map((s) => ({
         label: s.label,
