@@ -274,18 +274,27 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
         addedRoots === null ? allLines : dedupeEntries(addedRoots.flatMap((r) => adapter.linesIn(r)))
       examined += targets.length
       applyEntries(targets, stepKey)
-      foldPass(pool, stepKey, targets)
+      foldPass(pool, stepKey, allLines, targets)
     }
 
     /**
-     * 折叠 pass (只碰本次 targets — 增量批次 = 变更子树行, 禁止全池重扫):
-     * 连续无标注段 (≥3) 隐藏 + 段首占位行。页面原生折叠区内的行让位
-     * (该区自带展开 UX, skim 不重复折叠); 用户展开过的段不复活 (userExpanded)。
+     * 折叠 pass: 连续无标注段 (≥3, 跨虚拟化空洞合并) 隐藏 + 段首占位行。
+     * runs 计算面 = 全池在场行 (非 targets): 段按源空间 no 合并, 批次边界不切段 —
+     * 否则每批各成一个 key, 占位行跨批视觉堆叠 (修复前的 :300/:400/… 堆叠形态)。
+     * applyPool 的 DOM 写天然幂等 (行签名+占位行文本比对), 实际写只落在本批变更的行上;
+     * startNo 稳定 (段只随 attach 延伸, 见 foldRuns 假设) → 老 key 行零触碰。
+     * 页面原生折叠区内的行让位 (该区自带展开 UX, skim 不重复折叠);
+     * 用户展开过的段不复活 (userExpanded)。
      */
-    const foldPass = (_pool: HTMLElement, stepKey: string, targets: LineEntry[]): void => {
+    const foldPass = (
+      _pool: HTMLElement,
+      stepKey: string,
+      poolLines: LineEntry[],
+      targets: LineEntry[],
+    ): void => {
       if (!folds.enabled || targets.length === 0) return
       const { nativeFoldOf } = adapter
-      const eligible = nativeFoldOf === undefined ? targets : targets.filter((t) => !nativeFoldOf(t.el))
+      const eligible = nativeFoldOf === undefined ? poolLines : poolLines.filter((t) => !nativeFoldOf(t.el))
       if (eligible.length === 0) return
       const runs = foldRuns(eligible, (no) => annotations.has(adapter.lineKey(stepKey, no)))
       folds.applyPool(stepKey, runs, eligible)

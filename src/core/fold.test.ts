@@ -39,11 +39,37 @@ test('foldRuns: 段长 < min 不折 (1-2 行噪音保留)', () => {
   )
 })
 
-test('foldRuns: no 断档切段 (虚拟化窗口缺行不在场)', () => {
-  // 10 与 13 断档: 各自成段但 10-11 只有 2 行 < min; 13-15 成段
+test('foldRuns: no 断档 + 间无标注 → 延续合并 (跨虚拟化空洞)', () => {
+  // 10-11 与 13-15 之间 no 12 不在场且无标注 → 对用户同样不可见 → 合并单段, span 含空洞
   deepEqual(
     foldRuns(entries([10, 11, 13, 14, 15]), () => false),
+    [{ startNo: 10, endNo: 15 }],
+  )
+})
+
+test('foldRuns: no 断档 + 间有标注 → 切段 (标注截断优先于空洞合并)', () => {
+  const anno = new Set([12])
+  deepEqual(
+    foldRuns(entries([10, 11, 13, 14, 15]), (no) => anno.has(no)),
     [{ startNo: 13, endNo: 15 }],
+  )
+})
+
+test('foldRuns: 多重断档全合并 + 跨洞 span 计数 (endNo - startNo + 1)', () => {
+  // 命中只在 1 与 21: 2..20 全部无标注 (含 6-15 两个不在场空洞) → 单段, span=20
+  deepEqual(
+    foldRuns(entries([2, 3, 4, 5, 16, 17, 18, 19, 20]), (no) => no === 1 || no === 21),
+    [{ startNo: 2, endNo: 20 }],
+  )
+})
+
+test('foldRuns: 断档区间部分有标注 → 于标注处切段 (不问标注行是否在场)', () => {
+  // no 12 有标注但不在场 (虚拟化回收) — 仍切段: 命中可能驻留洞中, 不可折叠跨越;
+  // 16 无标注不在场 → 13-15 与 17-18 合并
+  const anno = new Set([12])
+  deepEqual(
+    foldRuns(entries([10, 11, 13, 14, 15, 17, 18]), (no) => anno.has(no)),
+    [{ startNo: 13, endNo: 18 }],
   )
 })
 

@@ -26,7 +26,7 @@
     prefers-color-scheme 暗色, shadow 内 `:host` 作用域) / `inline.ts` (幂等注入,
     纯 CSS icon (::before + data-lsk-intent), clearAll/clearPool) / `fold.ts`
     (流内噪音折叠: `foldRuns` 纯函数 + FoldInjector — 连续无标注段 ≥3 隐藏 + 段首占位行,
-    userExpanded 外置状态) / `observer.ts` (重放驱动) / `overlay.ts` (摘要面板,
+    断档无标注跨虚拟化空洞合并, userExpanded 外置状态) / `observer.ts` (重放驱动) / `overlay.ts` (摘要面板,
     **Shadow DOM 隔离**: #lsk-overlay/#lsk-fab 为 open shadow host, 布局关键属性 inline
     落 host, 内部样式经 tokens 注入 shadow — 与宿主页样式双向隔离)。
   - `adapters/` — 页面知识孤岛: `github.ts` (data-log-url + data-index 直映, deferProbe,
@@ -66,7 +66,14 @@ CSP fixture 用例 = 防 "wasm 挪回页面世界" 的回归锚。userscript 形
   (任何重建/懒加载/虚拟化收敛为 "sync 一遍")。
 - **流内折叠契约 (fold.ts, v0.2.0)**: 连续无标注行段 (≥FOLD_MIN=3) 加 class 隐藏 —
   **绝不 remove/detach 页面节点**; 段首插入占位行 `⋯ N lines` (外来节点, 依赖幂等重放重建);
-  折叠计算只吃当次 sync 的 targets (增量批次 = 变更子树行, 禁止全池重扫); 用户展开过的段记
+  "连续"按**源空间 no 语义**: 断档 (虚拟化未 attach) 区间无标注则合并跨洞
+  (`foldRuns` 用 isAnno 判任意 no — `annotations.has(lineKey)` 对不在场 no 成立);
+  runs 计算面 = 池内在场行 (controller.foldPass 传全池 eligible 行, 非 targets) —
+  跨批段合并的必要条件, 否则每批各成一个 key → 占位行跨批堆叠; applyPool DOM 写幂等
+  (行签名+占位行文本比对), 实际写只落在变更行; 段延伸 (startNo 稳定, endNo 增大) 刷新
+  占位行计数; 段合并产生的旧 key 占位行由孤儿对账移除 (紧邻池内行且 key ∉ 本次 runs);
+  段只随 attach 延伸/不分裂 (标注只在 reskim 变, 走 clearAll 重来) — 向上滚动致 startNo
+  前移会残留孤儿占位行, 已知边界 (见 foldRuns 注释); 用户展开过的段记
   userExpanded (外置 Set, 重放不复活; poolKeyPrefix 前缀失效随 stripPool); 标注行与折叠互斥
   (`.lsk-inline.lsk-folded` 恒为 0, e2e 断言面)。页面原生折叠区内的行让位
   (`adapter.nativeFoldOf`, github = group details 内)。

@@ -1,5 +1,6 @@
 // fold.ts — 流内噪音折叠 (呈现双轨之辅轨的降噪层)。
-// 契约: 池内连续无标注行段 (≥ FOLD_MIN) 隐藏 — 行元素加 class (绝不 remove/detach 页面
+// 契约: 池内连续无标注行段 (≥ FOLD_MIN; "连续"按源空间 no 语义, 虚拟化未 attach 的
+//       空洞无标注时不切断 — 见 foldRuns) 隐藏 — 行元素加 class (绝不 remove/detach 页面
 //       节点), 段首插入占位行 "⋯ N lines", 点击展开该段。占位行是外来节点, 页面重建
 //       (GitHub 虚拟化) 后由 ReplayDriver 幂等重放重建; 用户展开过的段记入 userExpanded
 //       (外置状态), 重放/滚动回看不复活。
@@ -18,8 +19,15 @@ export interface FoldRun {
 }
 
 /**
- * 纯函数: entries 中的最长连续无标注段。连续性按 no 相邻 (=== +1) 判定 — 虚拟化窗口
- * 的 no 断档 (未 attach 的行不在场) 自然切段; 标注行截断段。entries 无需有序。
+ * 纯函数: entries 中的最长连续无标注段。标注行截断段; no 断档 (虚拟化未 attach 的行
+ * 不在场) 时询问 isAnno 于断档区间 — 区间内无任何标注则延续当前段 (跨虚拟化空洞合并,
+ * 断档行对用户同样不可见, 折叠语义与在场噪音行等价), 有标注则切段。entries 无需有序。
+ *
+ * 依赖假设 (调用方 controller 的增量 sync 保证): 段只会随 attach 延伸/保持, 不会分裂 —
+ * 标注只在 reskim 时变化, reskim 走 clearAll 重来; 向下阅读方向 attach 只追加更大 no,
+ * startNo 稳定 → 占位行 key (foldKey = stepKey:startNo) 稳定, span 延伸由 applyPool
+ * 刷新计数。若假设被违反 (如向上滚动使 startNo 前移), 旧 key 占位行会残留为孤儿 —
+ * 已知边界, reskim/池漂移/开关切换的 clearAll 兜底清除。
  */
 export function foldRuns(entries: LineEntry[], isAnno: (no: number) => boolean, min = FOLD_MIN): FoldRun[] {
   const sorted = [...entries].sort((a, b) => a.no - b.no)
@@ -31,7 +39,19 @@ export function foldRuns(entries: LineEntry[], isAnno: (no: number) => boolean, 
     start = null
   }
   for (const e of sorted) {
-    if (isAnno(e.no) || (start !== null && e.no !== prevNo + 1)) close()
+    if (e.no <= prevNo) continue // 重复 no 防御 (dedupe 后不发生, 不为它产生畸形段)
+    if (isAnno(e.no)) {
+      close()
+    } else if (start !== null && e.no > prevNo + 1) {
+      // 断档: 其间无标注 → 延续 (合并跨虚拟化空洞); 有标注 → 切段
+      let gapHasAnno = false
+      for (let g = prevNo + 1; g < e.no; g++)
+        if (isAnno(g)) {
+          gapHasAnno = true
+          break
+        }
+      if (gapHasAnno) close()
+    }
     if (!isAnno(e.no) && start === null) start = e.no
     prevNo = e.no
   }
@@ -67,8 +87,10 @@ export class FoldInjector {
   }
 
   /**
-   * 单池折叠注入 (幂等): runs → 行隐藏 + 段首占位行。entries = 本次 sync 目标行
-   * (占位行插入点 = 段首行的 previousElementSibling)。返回本次新折叠行数。
+   * 单池折叠注入 (幂等): runs → 行隐藏 + 段首占位行。entries = 池内在场 eligible 行
+   * (runs 与 entries 同源, 见 controller.foldPass); 占位行插入点 = 段首行的
+   * previousElementSibling; 段延伸刷新占位行计数; 孤儿占位行 (key 不在本次 runs) 对账移除。
+   * 返回本次新折叠行数 (首标行数, 重标/刷新不计)。
    */
   applyPool(stepKey: string, runs: FoldRun[], entries: LineEntry[], opts: { replay?: boolean } = {}): number {
     if (!this.enabled || runs.length === 0) return 0
@@ -95,6 +117,9 @@ export class FoldInjector {
         prev.classList.contains('lsk-fold-ph') &&
         prev.dataset.lskPh === key
       ) {
+        // 幂等命中: 段随 attach 延伸 (startNo 稳定, endNo 增大) → 计数文本须刷新, 否则 stale
+        const label = `⋯ ${run.endNo - run.startNo + 1} lines`
+        if (prev.textContent !== label) prev.textContent = label
         continue
       }
       const ph = first.ownerDocument.createElement('div')
@@ -105,6 +130,19 @@ export class FoldInjector {
       ph.setAttribute('role', 'button')
       ph.onclick = () => this.expand(key)
       first.insertAdjacentElement('beforebegin', ph)
+    }
+    // 孤儿占位行对账: runs 按池全量行重算, 段合并后旧 key 的占位行不再属于任何 run
+    // (其段行已被新 key 重标) — 紧邻池内行之前且 key 不在本次 runs 的占位行即孤儿。
+    const runKeys = new Set(runs.map((r) => `${stepKey}:${r.startNo}`))
+    for (const e of byNo.values()) {
+      const prev = e.el.previousElementSibling
+      if (
+        prev instanceof HTMLElement &&
+        prev.classList.contains('lsk-fold-ph') &&
+        !runKeys.has(prev.dataset.lskPh ?? '')
+      ) {
+        prev.remove()
+      }
     }
     if (opts.replay) this.stats.replayed += folded
     else this.stats.applied += folded

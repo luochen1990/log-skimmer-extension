@@ -136,6 +136,21 @@ test.describe('github (虚拟化窗口)', () => {
     await settle(page)
     expect(await page.locator('.lsk-fold-ph').count()).toBeGreaterThanOrEqual(3)
     expect(await page.locator('.lsk-inline').count()).toBeGreaterThanOrEqual(15)
+    // 段合并契约: 连续噪音区跨批合并为单段 — 占位行之间必有可见标注行隔断,
+    // 垂直零间隙 (= 视觉堆叠) 不允许存在 (跨 cluster wrapper 的屏幕几何判定)
+    const stacked = await page.evaluate(() => {
+      const rects = [...document.querySelectorAll('.lsk-fold-ph')]
+        .map((ph) => ph.getBoundingClientRect())
+        .filter((r) => r.height > 0)
+        .sort((a, b) => a.top - b.top)
+      let prevBottom: number | null = null
+      for (const r of rects) {
+        if (prevBottom !== null && r.top - prevBottom < 1) return true
+        prevBottom = r.bottom
+      }
+      return false
+    })
+    expect(stacked).toBe(false)
 
     // 点击失败区前的占位行 (:982, "⋯ 18 lines") → 该段展开, 其余段仍折叠
     const key = await page
