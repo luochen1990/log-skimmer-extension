@@ -1,6 +1,6 @@
 {
   "name": "log-skimmer-web",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "log-skimmer browser delivery: Tampermonkey userscript that skims CI failure logs on GitHub Actions / Forgejo job pages",
   "license": "Apache-2.0",

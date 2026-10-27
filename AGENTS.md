@@ -79,10 +79,12 @@ CSP fixture 用例 = 防 "wasm 挪回页面世界" 的回归锚。userscript 形
 - **日志取数**: 恒同源 + `credentials: 'same-origin'`; 跨域仅 bundle (多源依序
   fallback: raw 主源 + jsDelivr 镜像, 全败诊断列各源原因; `lsk:bundleUrl` 覆盖
   优先于列表 — 内网镜像入口。`@connect` 需同时放行两域)。
-- **forgejo 双 ID 体系**: 页面 URL = 展示序号 Index, API = 内部主键 ID (v16.0.5
-  源码 GetRunByIndex vs GetRunByID, 长寿实例必然分叉, 生产 207↔22044) — run id
-  解析链: `#repo-action-view[data-run-id]` (SSR 内嵌) → `/actions/runs?run_number=`
-  反查; 禁止用 URL 序号直拼 API。
+- **forgejo 日志端点走 web 路由不走 /api/v1** (M4 生产教训, v0.1.5+): `/api/v1` 只吃
+  token 不吃会话 cookie, 浏览器会话请求对私有仓恒 404 (与 id 错误同形态 — 曾误导
+  双 ID 体系归因, ID 解析其实全对); web 路由 `GET /actions/runs/{序号}/jobs/{下标}/
+  attempt/{N}/logs` 与页面渲染同认证通路且直接吃 URL 序号, 零 ID 解析零认证问题。
+  页面 URL 与 API 的 Index/ID 双体系分叉仍是事实 (GetRunByIndex vs GetRunByID,
+  生产 207↔22044), 但已与取数无关。
 - **零运行时依赖** — 产物不 import 任何 npm 包; 工具链全 devDependencies
   (版本 SSOT = package-lock.json, `npm ci` 复现)。devShell 只提供 node/just/jq/rg。
 - **userscript 产物**: 单文件 IIFE (生态约束), wasm gzip+base64 内嵌 (~0.75 MiB),

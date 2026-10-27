@@ -12,8 +12,9 @@ import { FORGEJO_FIXTURE, getReport, injectUserscript, newSkimPage, waitReady } 
 
 // jobs 列表端点的 run 参数 = 内部主键 ID (fixture 内嵌 data-run-id=4242 ≠ URL 序号 1) —
 // 拦截 4242 而非 1: 若 adapter 退回用 URL 序号拼 API, 请求落空 → 源失败 → 测试红。
-const JOBS_API = '**/api/v1/repos/fixtures/forgejo/actions/runs/4242/jobs'
-const LOGS_API = '**/api/v1/repos/fixtures/forgejo/actions/jobs/7/logs'
+// web 日志路由 (v0.1.5+): 会话认证通路, 直接吃页面 URL 同款序号 — API 路径已退役
+// (/api/v1 只吃 token 不吃会话, 浏览器上下文对私有仓恒 404 — M4 生产教训)。
+const WEB_LOGS = '**/fixtures/forgejo/actions/runs/1/jobs/0/attempt/1/logs'
 const LOG_TEXT = fs.readFileSync(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/github/logs/step2.log.txt'),
   'utf8',
@@ -22,13 +23,7 @@ const LOG_TEXT = fs.readFileSync(
 /** 装配 forgejo fixture 页 (API 拦截 + 注入 + 就绪)。 */
 async function bootForgejoFixture(browser: import('@playwright/test').Browser) {
   const { context, page } = await newSkimPage(browser)
-  await context.route(JOBS_API, (route) =>
-    route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify([{ id: 7, name: 'fixture-job' }]),
-    }),
-  )
-  await context.route(LOGS_API, (route) => route.fulfill({ contentType: 'text/plain', body: LOG_TEXT }))
+  await context.route(WEB_LOGS, (route) => route.fulfill({ contentType: 'text/plain', body: LOG_TEXT }))
   await page.goto(FORGEJO_FIXTURE)
   await page.waitForFunction('window.__fjSim && window.__fjSim.rendered >= 80')
   await injectUserscript(page)
@@ -95,33 +90,5 @@ test('同数异容 (m5): 行数不变内容变 → 指纹哨兵仍触发整池�
   // 新 DOM 行 (全新元素) 被按新对齐注入 — 全量在场行重扫生效
   expect(report.sync.incremental).toBeGreaterThanOrEqual(1)
   expect(await page.locator('.lsk-inline').count()).toBeGreaterThan(0)
-  await context.close()
-})
-
-test('data-run-id 缺失 (生产 M4 形态) → run_number 反查解析真实 id (禁止序号直拼)', async ({ browser }) => {
-  // 剥掉 DOM 内嵌 id → 解析链必须走 /actions/runs?run_number=1 → entries[0].id=4242;
-  // 若退回 URL 序号直拼, 请求落 runs/1/jobs (无 route) → 源失败 → 测试红。
-  const { context, page } = await newSkimPage(browser)
-  await context.route('**/actions/runs?run_number=1*', (route) =>
-    route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ total_count: 1, entries: [{ id: 4242, index: 1 }] }),
-    }),
-  )
-  await context.route(JOBS_API, (route) =>
-    route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify([{ id: 7, name: 'fixture-job' }]),
-    }),
-  )
-  await context.route(LOGS_API, (route) => route.fulfill({ contentType: 'text/plain', body: LOG_TEXT }))
-  await page.goto(FORGEJO_FIXTURE)
-  await page.waitForFunction('window.__fjSim && window.__fjSim.rendered >= 80')
-  await page.evaluate(() => document.querySelector('#repo-action-view')?.removeAttribute('data-run-id'))
-  await injectUserscript(page)
-  await waitReady(page)
-  const report = await getReport(page)
-  expect(report.adapter).toBe('forgejo')
-  expect(report.sources[0]).toMatchObject({ ok: true, blocks: 10 })
   await context.close()
 })
