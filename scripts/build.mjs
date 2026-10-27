@@ -41,6 +41,9 @@ const MATCHES = [
   '*://*/*/*/actions/runs*',
 ]
 
+/** bundle 源 host 清单 (@connect 注入; 域名 SSOT = src/config.ts RULES_BUNDLE_URLS)。 */
+const BUNDLE_HOSTS = ['raw.githubusercontent.com', 'cdn.jsdelivr.net']
+
 const DESCRIPTION =
   'CI failure logs, skimmed — inline failure highlights + a skim overlay on GitHub Actions / Forgejo job log pages'
 
@@ -92,7 +95,7 @@ ${MATCHES.map((m) => `// @match        ${m}`).join('\n')}
 // @grant        GM.setValue
 // @grant        GM.getValue
 // @grant        GM.deleteValue
-// @connect      raw.githubusercontent.com
+${BUNDLE_HOSTS.map((h) => `// @connect      ${h}`).join('\n')}
 // @run-at       document-idle
 // @noframes
 // ==/UserScript==`
@@ -118,7 +121,7 @@ await build({
 // 放行 'wasm-unsafe-eval'); content script 经 chrome.runtime 消息通道调 skim
 // (src/core/abi-rpc.ts ↔ src/sw.ts)。content.js 构建时 stub 掉内嵌 wasm b64
 // (计算在 SW, 内嵌 0.7MB 死重由 onResolve 替换为空串模块剥离)。bundle 走
-// ACAO:* 的 raw.githubusercontent.com, 无需 host_permissions。
+// ACAO:* 的多源 (raw 主源 + jsDelivr 镜像, 见 src/config.ts), 无需 host_permissions。
 fs.mkdirSync(path.join(EXT_DIR, 'icons'), { recursive: true })
 const manifest = {
   manifest_version: 3,

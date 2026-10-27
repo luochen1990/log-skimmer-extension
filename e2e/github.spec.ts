@@ -2,6 +2,7 @@
 // 数据基底与 T4 轨 B 相同 (真实失败样本 step2 = 1172 行, 真实 165 规则 bundle),
 // 断言锚点 = T4 PROTO-REPORT 的实测数字 (浏览器内 wasm skim 与 CLI 对账一致)。
 // 覆盖: overlay 呈现 / 流内高亮 / 折叠交互 / 跳转 / 重放 / 控件态 (B1 矩阵) / 增量 sync。
+import fs from 'node:fs'
 import { expect, test } from '@playwright/test'
 import {
   DIST,
@@ -11,6 +12,7 @@ import {
   type LskReport,
   newSkimPage,
   waitReady,
+  waitSettled,
 } from './harness.ts'
 
 /** 打开 fixture 页并注入 userscript, 等就绪。 */
@@ -310,6 +312,50 @@ test.describe('多源与增量', () => {
     const fullSync = await getReport(page)
     expect(fullSync.sync.lastExamined).toBeGreaterThanOrEqual(domRows)
     expect(fullSync.sync.lastExamined).toBeGreaterThan(afterScroll.sync.lastExamined)
+    await context.close()
+  })
+})
+
+test.describe('rules bundle 多源 fallback', () => {
+  test('主源 500 → 镜像源 (jsDelivr) 成功', async ({ browser }) => {
+    // 无 bundleUrlOverride (seed 置空) → 走默认候选列表; GM shim 的 fetch 走页面
+    // 网络, context.route 可拦: 主源 500, 镜像源 serve 本地 bundle (ACAO:* 模拟 CDN)。
+    const { context, page } = await newSkimPage(browser, { seed: {} })
+    await context.route('**raw.githubusercontent.com/**', (r) =>
+      r.fulfill({ status: 500, contentType: 'text/plain', body: 'upstream down' }),
+    )
+    await context.route('**cdn.jsdelivr.net/**', (r) =>
+      r.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: fs.readFileSync('fixtures/rules-bundle.json', 'utf8'),
+        headers: { 'access-control-allow-origin': '*' },
+      }),
+    )
+    await page.goto(GITHUB_FIXTURE)
+    await page.waitForFunction('window.__ghSim && window.__ghSim.renders >= 1')
+    await injectUserscript(page)
+    const report = await waitReady(page)
+    expect(report.rules).toMatchObject({ ruleCount: 165, source: 'network' })
+    await context.close()
+  })
+
+  test('全部源失败 → 诊断列出各源失败原因', async ({ browser }) => {
+    const { context, page } = await newSkimPage(browser, { seed: {} })
+    await context.route('**raw.githubusercontent.com/**', (r) => r.abort())
+    await context.route('**cdn.jsdelivr.net/**', (r) =>
+      r.fulfill({ status: 502, contentType: 'text/plain', body: 'bad gateway' }),
+    )
+    await page.goto(GITHUB_FIXTURE)
+    await page.waitForFunction('window.__ghSim && window.__ghSim.renders >= 1')
+    await injectUserscript(page)
+    const report = await waitSettled(page) // rules 失败是 fatal 路径: ready 恒 false, 等 diags 落定
+    expect(report.rules).toBeNull() // 规则未装载 → 呈现面无 rules 信息
+    // 诊断面: 两源各报各的失败形态 (abort / HTTP 502)
+    const rulesDiag = report.diags.find((d) => d.stage === 'rules')
+    expect(rulesDiag?.message).toContain('raw.githubusercontent.com')
+    expect(rulesDiag?.message).toContain('cdn.jsdelivr.net')
+    expect(rulesDiag?.message).toContain('502')
     await context.close()
   })
 })

@@ -13,7 +13,7 @@
 import {
   BUNDLE_FORMAT_VERSION,
   HOST_KEYS,
-  RULES_BUNDLE_URL,
+  RULES_BUNDLE_URLS,
   RULES_FETCH_TIMEOUT_MS,
   RULES_STALE_DAYS,
 } from '../config.ts'
@@ -118,8 +118,10 @@ export class RulesStore {
     private readonly engineVersion: string,
   ) {}
 
-  private async bundleUrl(): Promise<string> {
-    return (await this.host.getValue(HOST_KEYS.bundleUrlOverride)) || RULES_BUNDLE_URL
+  /** 候选源: 手动覆盖 (单值, 调试/内网镜像) 优先, 缺省依序尝试发布端点列表。 */
+  private async bundleUrls(): Promise<string[]> {
+    const override = await this.host.getValue(HOST_KEYS.bundleUrlOverride)
+    return override ? [override] : RULES_BUNDLE_URLS
   }
 
   private async readCache(): Promise<RulesLoadResult | null> {
@@ -144,21 +146,30 @@ export class RulesStore {
   }
 
   private async fetchNetwork(): Promise<RulesLoadResult> {
-    const url = await this.bundleUrl()
-    let text: string
-    try {
-      const resp = await this.host.crossOriginFetch(url, RULES_FETCH_TIMEOUT_MS)
-      text = resp.text
-    } catch (e) {
+    const urls = await this.bundleUrls()
+    let text: string | undefined
+    const failures: string[] = []
+    for (const url of urls) {
+      try {
+        const resp = await this.host.crossOriginFetch(url, RULES_FETCH_TIMEOUT_MS)
+        text = resp.text
+        break
+      } catch (e) {
+        failures.push(`${url}: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    }
+    if (text === undefined) {
       return {
         ok: false,
         diag: {
           stage: 'rules',
-          message: `rules bundle fetch failed: ${e instanceof Error ? e.message : String(e)}`,
+          message: `rules bundle fetch failed (${urls.length} source(s) tried):\n${failures.join('\n')}`,
           hint:
             this.host.kind === 'bare'
-              ? `cross-origin fetch needs a host (Chrome extension or Tampermonkey) — install one, or check ${url}`
-              : `check network access to ${url}, then retry from the skim panel`,
+              ? 'cross-origin fetch needs a host (Chrome extension or Tampermonkey) — install one'
+              : urls.length === 1
+                ? 'check network access to the configured bundle URL, then retry from the skim panel'
+                : 'check network access to the bundle sources, then retry from the skim panel (a private mirror can be set via the lsk:bundleUrl storage key)',
         },
       }
     }
@@ -166,7 +177,7 @@ export class RulesStore {
     try {
       json = JSON.parse(text)
     } catch {
-      return { ok: false, diag: { stage: 'rules', message: `rules bundle at ${url} is not valid JSON` } }
+      return { ok: false, diag: { stage: 'rules', message: 'rules bundle is not valid JSON' } }
     }
     const v = validateBundle(json, this.engineVersion)
     if (!v.ok) return { ok: false, diag: { stage: 'rules', message: `rules bundle rejected: ${v.reason}` } }
