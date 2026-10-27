@@ -10,7 +10,9 @@ import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
 import { FORGEJO_FIXTURE, getReport, injectUserscript, newSkimPage, waitReady } from './harness.ts'
 
-const JOBS_API = '**/api/v1/repos/fixtures/forgejo/actions/runs/1/jobs'
+// jobs 列表端点的 run 参数 = 内部主键 ID (fixture 内嵌 data-run-id=4242 ≠ URL 序号 1) —
+// 拦截 4242 而非 1: 若 adapter 退回用 URL 序号拼 API, 请求落空 → 源失败 → 测试红。
+const JOBS_API = '**/api/v1/repos/fixtures/forgejo/actions/runs/4242/jobs'
 const LOGS_API = '**/api/v1/repos/fixtures/forgejo/actions/jobs/7/logs'
 const LOG_TEXT = fs.readFileSync(
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/github/logs/step2.log.txt'),

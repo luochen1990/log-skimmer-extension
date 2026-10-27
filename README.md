@@ -66,7 +66,8 @@ CI 失败日志动辄上万行, 真正的失败证据往往只有几十行。log
 │                        ├─ overlay     ─→ 摘要面板 (主视图)       │
 │                        └─ inline+observer ─→ 流内高亮 (幂等重放) │
 └─────────────────────────────────────────────────────────────────┘
-        唯一网络依赖: rules bundle (raw.githubusercontent.com, GM 跨域)
+        唯一网络依赖: rules bundle (发布端点多源依序 fallback, 内网/受限网络
+        可用 lsk:bundleUrl 覆盖; GM 跨域)
         日志数据: 页面同源端点 (GitHub data-log-url / Forgejo job API)
 ```
 

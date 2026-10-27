@@ -76,8 +76,12 @@ CSP fixture 用例 = 防 "wasm 挪回页面世界" 的回归锚。userscript 形
 - **规则消费纪律**: bundle 格式 SSOT = rules 仓生成管线, 本仓只消费; 校验
   (`validateBundle`) 对 format_version / min_engine_version / 结构 / rule_count 全严格
   (宁拒勿错, 有诊断)。缓存 cache-first; 刷新失败保留旧 bundle。
-- **日志取数**: 恒同源 + `credentials: 'same-origin'`; 跨域仅 bundle (GM_xmlhttpRequest,
-  `@connect raw.githubusercontent.com`)。
+- **日志取数**: 恒同源 + `credentials: 'same-origin'`; 跨域仅 bundle (多源依序
+  fallback: raw 主源 + jsDelivr 镜像, 全败诊断列各源原因; `lsk:bundleUrl` 覆盖
+  优先于列表 — 内网镜像入口。`@connect` 需同时放行两域)。
+- **forgejo 双 ID 体系**: 页面 URL = 展示序号 Index, API = 内部主键 ID (v16.0.5
+  源码 GetRunByIndex vs GetRunByID, 长寿实例必然分叉) — run id 一律读
+  `#repo-action-view[data-run-id]` (SSR 内嵌), 禁止用 URL 序号拼 API。
 - **零运行时依赖** — 产物不 import 任何 npm 包; 工具链全 devDependencies
   (版本 SSOT = package-lock.json, `npm ci` 复现)。devShell 只提供 node/just/jq/rg。
 - **userscript 产物**: 单文件 IIFE (生态约束), wasm gzip+base64 内嵌 (~0.75 MiB),

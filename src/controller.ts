@@ -106,18 +106,16 @@ async function findAdapter(doc: Document, loc: Location): Promise<Adapter | null
   return null
 }
 
-export async function boot(deps: BootDeps): Promise<void> {
-  const { host, doc, loc, wasmB64 } = deps
-  const matched = await findAdapter(doc, loc)
-  if (!matched) {
-    console.debug('[logskim] no adapter matched', loc.href)
-    return
-  }
-  const adapter: Adapter = matched // 重绑定收窄类型 — 闭包内保持 non-null (TS 流分析不跨函数声明)
+/** boot 终态: 'no-adapter' = 页面未识别 (main 据此布防 SPA 重载哨兵); 'booted' = 已呈现 (含降级)。 */
+export type BootOutcome = 'no-adapter' | 'booted'
 
-  const t0 = performance.now()
-  const report: LskReport = {
-    adapter: adapter.name,
+/** GH job 页 URL 形态 (日志页主入口); run summary 等非日志页保持静默 (非 skim 目标)。 */
+const GH_JOB_URL = /\/actions\/runs\/\d+\/job\/\d+/
+
+/** 空 report 工厂 (boot 与 no-adapter 诊断共用同一形状)。 */
+function newReport(adapter: string): LskReport {
+  return {
+    adapter,
     ready: false,
     engineVersion: '', // wasm 解压后回填 (版本来源 = wasm 侧, 非 host 常量)
     sources: [],
@@ -128,6 +126,39 @@ export async function boot(deps: BootDeps): Promise<void> {
     rules: null,
     diags: [],
   }
+}
+
+export async function boot(deps: BootDeps): Promise<BootOutcome> {
+  const { host, doc, loc, wasmB64 } = deps
+  const matched = await findAdapter(doc, loc)
+  if (!matched) {
+    // 有声失败 (M4 用户实测教训): job 页 URL 上探测耗尽 = DOM 未识别 (布局漂移/渲染
+    // 异常) — 诊断面板而非静默退出 (用户可感知可上报); 非日志页保持静默。
+    if (GH_JOB_URL.test(loc.pathname)) {
+      const diag: Diag = {
+        stage: 'adapter',
+        message: 'Actions job page detected but no log DOM (check-step) after probe retries',
+        hint: 'reload the page once (a fresh extension build needs a page refresh); if it persists, the page layout may have changed — please report',
+      }
+      const report: LskReport = { ...newReport('none'), diags: [diag] }
+      const win = doc.defaultView
+      if (win) (win as { __lsk?: LskReport }).__lsk = report
+      const overlay = new SkimOverlay({
+        onJump: () => {},
+        onToggleInline: () => {},
+        onRefreshRules: async () => {},
+      })
+      overlay.mount(doc)
+      overlay.renderDiags([diag])
+      overlay.open()
+    }
+    console.debug('[logskim] no adapter matched', loc.href)
+    return 'no-adapter'
+  }
+  const adapter: Adapter = matched // 重绑定收窄类型 — 闭包内保持 non-null (TS 流分析不跨函数声明)
+
+  const t0 = performance.now()
+  const report: LskReport = newReport(adapter.name)
   const win = doc.defaultView
   if (win) (win as { __lsk?: LskReport }).__lsk = report
   const bootHref = loc.href
@@ -292,13 +323,13 @@ export async function boot(deps: BootDeps): Promise<void> {
     report.engineVersion = engineVersion
   } catch (e) {
     fatal(wasmLoadDiag(e, host.kind))
-    return
+    return 'booted'
   }
   const rulesStore = new RulesStore(host, engineVersion)
   const rulesLoad = await rulesStore.load()
   if (!rulesLoad.ok) {
     fatal(rulesLoad.diag)
-    return // 无规则无法 skim — 诊断已呈现
+    return 'booted' // 无规则无法 skim — 诊断已呈现
   }
   const { bundle } = rulesLoad
   applyRulesInfo(rulesLoad)
@@ -322,11 +353,11 @@ export async function boot(deps: BootDeps): Promise<void> {
       message: `engine rejected the rules bundle: ${errToMessage(e)}`,
       hint: 'cached bundle invalidated — reload the page to re-fetch',
     })
-    return
+    return 'booted'
   }
 
   const sourcesLoaded = await loadSources()
-  if (!sourcesLoaded) return // 无源: 诊断已呈现 (fatal), 不进入注入/observer
+  if (!sourcesLoaded) return 'booted' // 无源: 诊断已呈现 (fatal), 不进入注入/observer
   renderLoadedSources()
 
   // ---- 初始 pass + observer 重放 ----
@@ -481,6 +512,8 @@ export async function boot(deps: BootDeps): Promise<void> {
     }
     return true
   }
+
+  return 'booted'
 }
 
 function summarize(loaded: LoadedSource[]): LskReport['sources'] {

@@ -3,6 +3,8 @@
      模拟 forgejo v16 渐进渲染 (运行中 job 追加行 / 同数换内容重渲染)。
      URL 形态刻意匹配 forgejoAdapter.match 与 parseForgejoLoc 的正则
      (/fixtures/forgejo/actions/runs/1/jobs/0.html → owner=fixtures repo=forgejo runId=1 jobIndex=0)。
+     #repo-action-view 刻意内嵌 data-run-id="4242" ≠ URL 序号 1 — 固化生产实例的
+     双 ID 体系分叉 (URL=展示序号 Index, API=内部主键 ID), adapter 必须读 DOM 真实 ID。
      API (jobs 列表 / logs 端点) 由 e2e route 拦截 fulfill — 本 fixture 自身零后端。 -->
 <html lang="zh">
   <head>
@@ -22,6 +24,8 @@
     </style>
   </head>
   <body>
+    <!-- SSR 内嵌 run 数据标记 (真实 forgejo job 页同款属性; hidden 不参与日志行池) -->
+    <div id="repo-action-view" data-run-index="1" data-run-id="4242" data-job-index="0" hidden></div>
     <div class="action-view-body">
       <div class="job-step-container">
         <div class="job-step-section" id="sec-0">

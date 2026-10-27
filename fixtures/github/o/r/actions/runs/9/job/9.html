@@ -1,0 +1,16 @@
+<!doctype html>
+<!-- GH job 页形态 fixture (M4): 路径刻意为 /actions/runs/9/job/9 形态 (匹配
+     GH_JOB_URL 有声失败判定), 但 DOM 无 check-step — 模拟 GitHub 布局漂移/
+     渲染异常下的探测耗尽路径 (诊断面板而非静默退出)。 -->
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <title>gh job fixture (no check-step)</title>
+  </head>
+  <body>
+    <main>
+      <h1>Job shell without log DOM</h1>
+      <p>simulates GitHub layout drift: job URL shape, no check-step elements</p>
+    </main>
+  </body>
+</html>

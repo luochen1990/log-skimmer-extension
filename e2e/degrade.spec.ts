@@ -177,3 +177,16 @@ test('非 CI 页面: 适配器不匹配 → 零注入零报错', async ({ browse
   expect(await page.locator('#lsk-fab').count()).toBe(0)
   await context.close()
 })
+
+test('GH job 页 URL 但无 check-step (布局漂移) → no-adapter 诊断面板, 非静默 (M4)', async ({ browser }) => {
+  // 探测耗尽 (~10s 有界重试) 后: job URL 形态 → 诊断面板 + __lsk 可观测; 非日志页才静默。
+  const { context, page } = await newSkimPage(browser)
+  await page.goto(`${BASE}/fixtures/github/o/r/actions/runs/9/job/9.html`)
+  await injectUserscript(page)
+  const report = await waitSettled(page)
+  expect(report.adapter).toBe('none')
+  expect(report.ready).toBe(false)
+  expect(report.diags.some((d) => d.stage === 'adapter' && d.message.includes('check-step'))).toBe(true)
+  expect(await page.locator('#lsk-overlay').isVisible()).toBe(true)
+  await context.close()
+})
