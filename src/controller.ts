@@ -179,6 +179,7 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
       const src = loaded[srcIdx]
       return src?.ok ? adapter.jumpTo(src, blk, ctx) : false
     },
+    pageCoords: (blk) => adapter.pageCoords?.(blk, ctx) ?? null,
     onToggleInline: (on) => {
       injector.setEnabled(on) // off: 清 class+签名 (重放不再注入) — B1
       report.inline = { ...injector.stats, enabled: on }
@@ -358,10 +359,11 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
 
   const sourcesLoaded = await loadSources()
   if (!sourcesLoaded) return 'booted' // 无源: 诊断已呈现 (fatal), 不进入注入/observer
+  // 先对齐 (填充 ctx.aligns) 再渲染块 — pageCoords 依赖对齐缓存 (forgejo 局部行号)
+  syncInline()
   renderLoadedSources()
 
   // ---- 初始 pass + observer 重放 ----
-  syncInline()
   const driver = new ReplayDriver((batch) => {
     if (loc.href !== bootHref) {
       // GitHub Turbo 同文档导航: 状态全外置于旧 URL — 干净重载 (userscript 随页重跑)。

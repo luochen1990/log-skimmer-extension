@@ -39,6 +39,8 @@ export interface OverlayInit {
   onToggleInline: (on: boolean) => void
   /** 规则刷新 (异步); overlay 在 Promise 落定前禁用按钮 (防连点)。 */
   onRefreshRules: () => Promise<void>
+  /** 块 → 页面原生坐标标签 (null = 退回源坐标); 行号与页面对齐的关键 (forgejo step 局部号)。 */
+  pageCoords?: (block: OutputBlock) => string | null
 }
 
 export class SkimOverlay {
@@ -255,7 +257,9 @@ export class SkimOverlay {
     rule.textContent = blk.fragments.map((f) => f.rule).join(' ') // 多规则块全展示
     const ln = this.doc.createElement('span')
     ln.className = 'lsk-lines'
-    ln.textContent = `L${blk.start_line}${blk.end_line > blk.start_line ? `-${blk.end_line}` : ''}`
+    const page = this.init.pageCoords?.(blk) ?? null
+    ln.textContent = page ?? `L${blk.start_line}${blk.end_line > blk.start_line ? `-${blk.end_line}` : ''}`
+    if (page) ln.title = `source L${blk.start_line}-${blk.end_line}`
     row.append(ic, cat, rule, ln)
     const ctx = this.doc.createElement('div')
     ctx.className = 'lsk-ctx'

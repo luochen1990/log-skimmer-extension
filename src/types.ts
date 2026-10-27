@@ -148,6 +148,11 @@ export interface Adapter {
   stepLogs(doc: Document): HTMLElement[]
   /** 池标识 (外置状态 key 的一部分)。 */
   stepKeyOf(poolEl: HTMLElement, doc: Document): string
+  /**
+   * 块 → 页面原生坐标标签 (null = 退回源坐标 L 起-止)。forgejo: step 局部行号
+   * (与页面行号同体系; 全局↔局部经对齐缓存逆映射); github: 源坐标即页面行。
+   */
+  pageCoords?(blk: OutputBlock, ctx: AdapterCtx): string | null
   /** 池内行枚举 (全量在场行)。 */
   linesOf(poolEl: HTMLElement): LineEntry[]
   /** 子树内行枚举 — 增量 sync 用 (只扫 mutation 涉及的新节点)。 */

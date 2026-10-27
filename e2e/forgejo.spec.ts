@@ -47,6 +47,9 @@ test('forgejo fixture: 整 job 单源 + 对齐 + overlay 10 块 (同语料 T4 �
 
   await page.click('#lsk-fab')
   expect(await page.locator('#lsk-overlay .lsk-blk').count()).toBe(10)
+  // 页面坐标锚: 块行行号 = 页面 step 局部号 (s0:L…), 非全局源坐标 (行号对齐用户诉求)
+  const lines = await page.locator('#lsk-overlay .lsk-lines').allTextContents()
+  expect(lines.some((t) => /^s\d+:L\d+/.test(t))).toBe(true)
   await context.close()
 })
 

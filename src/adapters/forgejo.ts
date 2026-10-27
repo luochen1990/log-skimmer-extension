@@ -138,6 +138,24 @@ export const forgejoAdapter = {
     return `logs-${[...doc.querySelectorAll('.job-step-logs')].indexOf(logsEl)}`
   },
 
+  /** 块 → 页面原生坐标: 对齐缓存逆映射, 取命中最多的 step 为主区间 (块跨 step 时)。 */
+  pageCoords(blk, ctx) {
+    let best: { step: string; nos: number[] } | null = null
+    for (const a of ctx.aligns.values()) {
+      const nos: number[] = []
+      for (let ln = blk.start_line - 1; ln < blk.end_line; ln++) {
+        const no = a.inverse.get(ln)
+        if (no !== undefined) nos.push(no)
+      }
+      if (best === null || nos.length > best.nos.length) best = { step: a.stepKey, nos }
+    }
+    if (!best || best.nos.length === 0) return null
+    const lo = Math.min(...best.nos)
+    const hi = Math.max(...best.nos)
+    const step = best.step.replace(/^jobstep-/, 's')
+    return hi > lo ? `${step}:L${lo}-${hi}` : `${step}:L${lo}`
+  },
+
   /** 池内行迭代 (no = step 内局部行号, 取自 id, 1-based)。 */
   linesOf(logsEl) {
     return lineEntries([...logsEl.querySelectorAll<HTMLElement>('.job-log-line')])
