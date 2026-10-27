@@ -142,8 +142,10 @@ ${OVERLAY_TOKENS}
 .lsk-brand::before { content: '≋'; color: var(--lsk-accent); font-size: 15px; }
 .lsk-ver { color: var(--lsk-fg-faint); font: 11px var(--lsk-mono); }
 .lsk-sp { margin-left: auto; display: flex; gap: 6px; align-items: center; }
-.lsk-metaline { display: flex; align-items: center; gap: 8px; padding: 0 14px 8px; border-bottom: 1px solid var(--lsk-border-soft); min-height: 24px; }
-.lsk-meta { color: var(--lsk-fg-dim); font: 11px var(--lsk-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lsk-metaline { display: flex; align-items: center; gap: 8px; padding: 0 18px 8px 14px; border-bottom: 1px solid var(--lsk-border-soft); min-height: 24px; }
+/* meta 可收缩项 (flex:1 + min-width:0 → 溢出全部由 meta 吸收, ellipsis 生效);
+   chip flex:none 保形 — 否则 flex 收缩按 basis 分摊, chip 被挤压/推出右 padding 贴边线 */
+.lsk-meta { color: var(--lsk-fg-dim); font: 11px var(--lsk-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
 .lsk-meta b { color: var(--lsk-fg); font-weight: 600; }
 .lsk-tabs { display: flex; gap: 6px; padding: 8px 14px 0; overflow-x: auto; scrollbar-width: thin; flex: none; }
 .lsk-tabs::-webkit-scrollbar { height: 4px; }
@@ -199,7 +201,7 @@ button.lsk-iconbtn:hover { background: var(--lsk-bg-soft); color: var(--lsk-fg);
 .lsk-diags .lsk-diag .lsk-hint { color: var(--lsk-fg-dim); display: block; }
 /* ---- rules chip ---- */
 .lsk-chip { font: 10px var(--lsk-mono); color: var(--lsk-fg-dim); padding: 1px 8px; border: 1px solid var(--lsk-border);
-  border-radius: 999px; white-space: nowrap; margin-left: auto; }
+  border-radius: 999px; white-space: nowrap; margin-left: auto; flex: none; }
 .lsk-chip.stale { background: var(--lsk-warning-bg); border-color: var(--lsk-warning-fg); color: var(--lsk-warning-fg); }
 </style>
 <div class="panel">
