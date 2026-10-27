@@ -29,13 +29,10 @@ async function bootGithub(browser: import('@playwright/test').Browser): Promise<
   return { context, page, report }
 }
 
-/** 滚动到目标逻辑行 (data-index): 在场则滚入视口, 否则像素估算兜底 (行高 ~21px)。 */
+/** 滚动到目标逻辑行 (data-index): 折叠引入后行元素可能 display:none (scrollIntoView 失效),
+ *  统一走像素估算 (行高 ~21px); 精确落位由调用方对可见目标行显式 scrollIntoView。 */
 async function scrollToIndex(page: import('@playwright/test').Page, idx: number): Promise<void> {
-  await page.evaluate(
-    (i: number) =>
-      document.querySelector(`[data-index='${i}']`)?.scrollIntoView() ?? window.scrollTo(0, i * 21),
-    idx,
-  )
+  await page.evaluate((i: number) => window.scrollTo(0, i * 21), idx)
 }
 
 test.describe('github fixture 主链路', () => {
@@ -106,22 +103,19 @@ test.describe('github fixture 主链路', () => {
       .nth(nb - 1)
       .locator('.lsk-row')
       .click()
-    // 等滚动落位 + 高亮注入到位 (跨 cluster: 滚动 → cluster attach → 重放注入三段链路,
-    // 组合条件等待消除段间竞态; .lsk-inline 在场 = 注入完成)
-    await page.waitForFunction(
-      'window.scrollY > 5000 && document.querySelectorAll(".lsk-inline").length > 0',
-      undefined,
-      { timeout: 10_000 },
-    )
-    const jump = await page.evaluate(() => {
-      const el = [...document.querySelectorAll('.lsk-inline')].at(-1)
-      return {
-        dataIndex: el?.closest('[data-index]')?.getAttribute('data-index') ?? null,
-        scrollY: Math.round(window.scrollY),
-      }
+    // 等滚动落位 + 高亮注入到位 (跨 cluster: 滚动 → cluster attach → 重放注入三段链路;
+    // 折叠引入后页面高度压缩, in-page 坐标不稳定 — 锚定断言: 尾块行 (L1136-1138,
+    // 0-based idx 1135-1137) 被高亮即在视口落位, 强于旧 scrollY 阈值)
+    await page.waitForFunction(() => document.querySelectorAll('.lsk-inline').length > 0, undefined, {
+      timeout: 10_000,
     })
-    expect(jump.dataIndex).not.toBeNull()
-    expect(jump.scrollY).toBeGreaterThan(5000) // 深处块 (尾块 L1136+)
+    await page.waitForFunction(() => {
+      const idxes = [...document.querySelectorAll('.lsk-inline')]
+        .map((el) => el.closest('[data-index]')?.getAttribute('data-index'))
+        .filter((x): x is string => x !== null)
+        .map(Number)
+      return Math.max(-1, ...idxes) >= 1135
+    })
     await page.screenshot({ path: 'e2e/shots/github-jump.png' })
     await context.close()
   })
@@ -298,20 +292,31 @@ test.describe('多源与增量', () => {
     await page.waitForTimeout(400)
     const afterScroll = await getReport(page)
     const domRows = await page.locator('div[data-index]').count()
-    // 增量: 检查行数 = 新 attach 的行 (~1-2 cluster), 且严格小于在场行总数
-    // (整池重扫则 ≥ 在场行数 — 池内在场 ~150+18 行)
+    // 增量: 检查行数 = 新 attach 的行 (视口 ±50 行窗口, 至多跨 3 个 cluster ≈ 150 行),
+    // 且严格小于在场行总数 (整池重扫则 ≥ 在场行数 — 池内在场 ~150+18 行)
     expect(afterScroll.sync.lastExamined).toBeGreaterThan(0)
-    expect(afterScroll.sync.lastExamined).toBeLessThanOrEqual(120)
+    expect(afterScroll.sync.lastExamined).toBeLessThanOrEqual(200)
     expect(domRows).toBeGreaterThanOrEqual(150)
 
-    // 对照: 控件态主动触发一次全量 sync (inline off→on) — lastExamined ≈ 在场行总数
+    // 对照: 控件态 off→on 主动全量 sync (B1)。折叠引入后, 全量折叠 → 页面高度骤缩 →
+    // 滚动锚定补偿 → 虚拟化窗口滑动 → 新 cluster attach 的级联使 examined 与 domRows
+    // 快照时间解耦 — 改断言更本质的不变量: 全量 sync 发生 (full++) 且折叠态无损重建
+    // (占位行/高亮回到场, 即 replay-restore 不变量)。
     await page.click('#lsk-fab')
+    const fullBefore = afterScroll.sync.full
     await page.click('#lsk-inline-btn')
     await page.click('#lsk-inline-btn')
-    await page.waitForTimeout(300)
-    const fullSync = await getReport(page)
-    expect(fullSync.sync.lastExamined).toBeGreaterThanOrEqual(domRows)
-    expect(fullSync.sync.lastExamined).toBeGreaterThan(afterScroll.sync.lastExamined)
+    await expect
+      .poll(
+        async () => {
+          const r = await getReport(page)
+          const ph = await page.locator('.lsk-fold-ph').count()
+          const hi = await page.locator('.lsk-inline').count()
+          return r.sync.full > fullBefore && ph > 0 && hi > 0
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true)
     await context.close()
   })
 })

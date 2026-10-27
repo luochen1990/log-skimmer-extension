@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<!-- github fixture (group-fold 变体) — 与 index.html 同构, 差异仅两处:
+     ① step2 开启 data-group-fold (##[group] 渲染为 details.lsk-group, 默认收起);
+     ② step2 日志指向 step2-grouped.log.txt (在真实失败块 L1001-1002 外包了一层
+        ##[group]/##[endgroup], 供 "group 内含命中 → 自动展开" 行为契约用)。
+        该变体 1174 行 (原 1172 + 2), 坐标在 L1000 后 +1 — 不承担 T4 对账锚点。 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>someorg/somerepo · Build and test · job 120819301735 (group-fold)</title>
+<style>
+  :root { color-scheme: light; }
+  body { font: 12px/1.5 -apple-system, 'Segoe UI', sans-serif; background: #fff; color: #1f2328; margin: 0; }
+  .page { max-width: 1012px; margin: 0 auto; padding: 24px 16px; }
+  .hd { border-bottom: 1px solid #d1d9e0; padding-bottom: 12px; margin-bottom: 16px; }
+  .hd h1 { font-size: 18px; margin: 0 0 4px; }
+  .hd .sub { color: #57606a; }
+  .js-check-steps { display: flex; flex-direction: column; gap: 8px; }
+  check-step { display: block; }
+  details.js-checks-log-details { border: 1px solid #d1d9e0; border-radius: 8px; }
+  details.js-checks-log-details[open] summary { border-bottom: 1px solid #d1d9e0; }
+  .CheckStep-header { padding: 10px 14px; cursor: pointer; font-weight: 600; font-size: 13px; list-style: none; display: flex; gap: 8px; align-items: center; }
+  .CheckStep-header::before { content: '▸'; color: #57606a; transition: transform .1s; }
+  details[open] .CheckStep-header::before { transform: rotate(90deg); }
+  .step-ok::after { content: '✓ success'; color: #1a7f37; font-weight: 600; margin-left: auto; font-size: 11px; }
+  .step-fail::after { content: '✗ failure'; color: #cf222e; font-weight: 600; margin-left: auto; font-size: 11px; }
+  .js-checks-log-display-container { padding: 4px 0 8px; }
+  .lsk-cluster { contain: layout; }
+  div[data-index] { font: 12px/21px ui-monospace, SFMono-Regular, monospace; white-space: pre-wrap; word-break: break-all; }
+  .js-check-step-line { display: flex; padding: 0 14px; }
+  .js-check-step-line:hover { background: #f6f8fa; }
+  .CheckStep-line-number { color: #57606a; width: 52px; flex: none; text-align: right; padding-right: 12px; text-decoration: none; }
+  .CheckStep-line-timestamp { color: #57606a; padding-right: 12px; display: none; }
+  .CheckRun-show-timestamps .CheckStep-line-timestamp { display: inline; }
+  .js-check-line-content { flex: 1; min-width: 0; }
+  .log-line-error { background: #ffebe9; }
+  .log-line-warning { background: #fff8c5; }
+  .log-line-group { color: #57606a; font-weight: 600; }
+  .text-bold { font-weight: 700; }
+  .ansifg-31, .ansifg-9 { color: #cf222e; } .ansifg-32, .ansifg-10 { color: #1a7f37; }
+  .ansifg-33, .ansifg-11 { color: #9a6700; } .ansifg-34, .ansifg-12 { color: #0969da; }
+  .ansifg-35, .ansifg-13 { color: #8250df; } .ansifg-36, .ansifg-14 { color: #1b7c83; }
+  .ansifg-37, .ansifg-15 { color: #57606a; } .ansifg-30, .ansifg-8 { color: #8c959f; }
+  .toolbar { margin: 0 0 10px; color: #57606a; font-size: 11px; }
+  /* group 折叠区 (fixture 契约): summary 常显, 体行收起隐藏 */
+  details.lsk-group { margin: 2px 14px; border: 1px solid #d1d9e0; border-radius: 6px; }
+  details.lsk-group > summary { cursor: pointer; list-style: none; padding-left: 0; }
+  details.lsk-group > summary::before { content: '▸ '; color: #57606a; }
+  details.lsk-group[open] > summary::before { content: '▾ '; }
+  details.lsk-group[open] > summary .log-line-group { color: #0969da; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="hd">
+    <h1>Build and test <span style="color:#cf222e">✗ failed</span></h1>
+    <div class="sub">someorg/somerepo · run 40075984161 · job 120819301735 · attempt 1 · macos-14 (group-fold 变体, 语料: 真实失败样本 + fixture group)</div>
+  </div>
+  <div class="toolbar">group-fold 变体: ##[group] → details.lsk-group (默认收起) · 命中所在 group 由插件自动展开</div>
+  <div class="js-check-steps">
+
+    <check-step data-name="Set up job" data-number="1" data-conclusion="success"
+                data-log-url="/fixtures/github/logs/step1.log.txt">
+      <details class="Details-element CheckStep details-reset js-checks-log-details" id="check-step-1" data-step-number="1" data-conclusion="success">
+        <summary class="CheckStep-header p-2 js-check-step-summary step-ok">Set up job</summary>
+        <div class="js-checks-log-display">
+          <div class="js-checks-log-display-container"></div>
+        </div>
+      </details>
+    </check-step>
+
+    <check-step data-name="Build and test" data-number="2" data-conclusion="failure"
+                data-log-url="/fixtures/github/logs/step2-grouped.log.txt" data-expand="true" data-group-fold="true">
+      <details class="Details-element CheckStep details-reset js-checks-log-details" id="check-step-2" data-step-number="2" data-conclusion="failure">
+        <summary class="CheckStep-header p-2 js-check-step-summary step-fail">Build and test</summary>
+        <div class="js-checks-log-display">
+          <div class="js-checks-log-display-container"></div>
+        </div>
+      </details>
+    </check-step>
+
+  </div>
+</div>
+<script type="module" src="/fixtures/github/sim.js"></script>
+</body>
+</html>

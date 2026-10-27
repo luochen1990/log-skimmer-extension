@@ -20,7 +20,8 @@ declare global {
 }
 
 export const DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../dist/log-skimmer.user.js')
-export const BASE = 'http://127.0.0.1:8801'
+/** fixture 服务基址 (LSK_E2E_PORT 与 playwright.config/serve.mjs 同源, 默认 8801)。 */
+export const BASE = `http://127.0.0.1:${process.env.LSK_E2E_PORT ?? 8801}`
 export const BUNDLE_URL = `${BASE}/fixtures/rules-bundle.json`
 export const GITHUB_FIXTURE = `${BASE}/fixtures/github/index.html`
 /** forgejo fixture: URL 形态匹配 adapter 正则 (owner=fixtures/repo=forgejo), API 由 route 拦截。 */

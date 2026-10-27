@@ -41,7 +41,11 @@
     <script>
       // 渐进渲染仿真: 初始 80 行; append 追加 CHUNK 行 (运行中 job); rewrite 整池
       // 重建为同行数的另一段内容 (同数异容 — 纯行数哨兵察觉不到的漂移形态)。
+      // ?fold=1 变体: step 初始收起 (不渲染), 点折叠头才渲染首段 — 供 "未渲染 step
+      // 含命中 → 自动展开 (程序化点击折叠头)" 行为契约用 (真实 forgejo = 懒加载 AJAX,
+      // fixture 简化为同步渲染, DOM 增长形态一致, replay 路径相同)。
       // 日志基底 = github fixture 的真实失败样本 (1172 行, 10 块), 行 id 局部 1-based。
+      const FOLD = new URLSearchParams(location.search).has('fold')
       const INITIAL = 80
       const CHUNK = 120
       // rewrite 目标段取失败块密集区 (L960+): 同数异容重对齐后注入可观测
@@ -50,7 +54,7 @@
       let lines = []
       let rendered = 0
       let offset = 0
-      window.__fjSim = { appended: 0, rewritten: 0, rendered: 0 }
+      window.__fjSim = { appended: 0, rewritten: 0, rendered: 0, fold: FOLD }
 
       function lineEl(localNo, text) {
         const d = document.createElement('div')
@@ -82,8 +86,18 @@
         .then((r) => r.text())
         .then((t) => {
           lines = t.split('\n')
-          appendLines(INITIAL)
+          if (!FOLD) appendLines(INITIAL)
         })
+
+      // 折叠头 (真实 forgejo = 懒加载触发点): FOLD 模式下点按渲染首段 (幂等: 只渲染一次)
+      let opened = !FOLD
+      window.__fjSim.opened = 0
+      document.querySelector('.job-step-summary').addEventListener('click', () => {
+        if (opened) return
+        opened = true
+        window.__fjSim.opened++
+        appendLines(INITIAL)
+      })
 
       document.getElementById('fj-append').onclick = () => {
         appendLines(CHUNK)

@@ -16,7 +16,7 @@
 //   fixture (fixtures/github) 按 "文本行 ↔ data-index 一一对应" 建模了已知语义。
 
 import { topFragment } from '../core/intent.ts'
-import type { Adapter, LineEntry, LoadedSource, LogSource, OutputBlock } from '../types.ts'
+import type { Adapter, Foldable, LineEntry, LoadedSource, LogSource, OutputBlock } from '../types.ts'
 
 function lineEntriesIn(scope: Element): LineEntry[] {
   const rows = [...scope.querySelectorAll<HTMLElement>('[data-index]')]
@@ -109,6 +109,35 @@ export const githubAdapter = {
 
   poolKeyPrefix(stepKey) {
     return `${stepKey}#`
+  },
+
+  /**
+   * 原生折叠区自动展开: `##[group]` 折叠 details 内含命中行 → 程序化展开。
+   * fixture 契约 `details.lsk-group[data-gstart][data-gend]` (sim.js 建模, data-index
+   * 闭区间); 真实 GitHub DOM 的 group 折叠头 class 待登录态校准 — 与 cluster wrapper
+   * 同一 TODO, 届时只改此处选择器。step 级折叠不自动展开 (失败 step 页面自身会展开;
+   * 绿 step 展开属 scope creep)。
+   */
+  foldables(doc, probe) {
+    const out: Foldable[] = []
+    for (const d of doc.querySelectorAll<HTMLDetailsElement>('details.lsk-group:not([open])')) {
+      const gs = Number(d.dataset.gstart)
+      const ge = Number(d.dataset.gend)
+      if (!Number.isInteger(gs) || !Number.isInteger(ge)) continue
+      const stepKey = d.closest('check-step')?.getAttribute('data-log-url') ?? 'unknown-step'
+      let hit = false
+      for (let i = gs; i <= ge && !hit; i++) hit = probe.hasHitLine(githubAdapter.lineKey(stepKey, i))
+      if (hit) {
+        const el = d
+        out.push({ key: `gh-group:${stepKey}:${gs}`, expand: () => (el.open = true) })
+      }
+    }
+    return out
+  },
+
+  /** 行在页面原生折叠区内 (step 容器 details 之外的 group 折叠) — skim 折叠让位。 */
+  nativeFoldOf(el: Element) {
+    return !!el.closest('details.lsk-group')
   },
 
   /**

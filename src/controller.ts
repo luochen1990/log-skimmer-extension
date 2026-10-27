@@ -17,6 +17,7 @@ import { gunzip, loadEngine, type SkimAbi } from './core/abi.ts'
 import { loadEngineRpc, rpcAvailable } from './core/abi-rpc.ts'
 import { poolFingerprint } from './core/align.ts'
 import { SkimEngine } from './core/engine.ts'
+import { FoldInjector, foldRuns } from './core/fold.ts'
 import { type Annotation, InlineInjector } from './core/inline.ts'
 import { INTENT_RANK } from './core/intent.ts'
 import { ReplayDriver } from './core/observer.ts'
@@ -27,6 +28,7 @@ import type {
   Adapter,
   AdapterCtx,
   Diag,
+  FoldProbe,
   Fragment,
   LineEntry,
   LoadedSource,
@@ -182,6 +184,7 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
     pageCoords: (blk) => adapter.pageCoords?.(blk, ctx) ?? null,
     onToggleInline: (on) => {
       injector.setEnabled(on) // off: 清 class+签名 (重放不再注入) — B1
+      folds.setEnabled(on) // off: 解除折叠 + 移除占位行 (可逆性); on 由下方补 sync 恢复
       report.inline = { ...injector.stats, enabled: on }
       if (on) syncInline() // on: 无 DOM 变更则无重放事件 — 主动补一次 sync 恢复
     },
@@ -216,6 +219,10 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
   const loaded: LoadedSource[] = []
   const injector = new InlineInjector()
   injector.ensureStyle(doc)
+  const folds = new FoldInjector()
+  folds.ensureStyle(doc)
+  /** 自动展开去重 (外置状态): 已程序化展开过的原生折叠区只展开一次 (防循环)。 */
+  const expandedFolds = new Set<string>()
   /** 行池增量状态 (WeakMap: 池被移除即可 GC): 指纹哨兵 — 漂移即整池重对齐重注入。 */
   let poolStates = new WeakMap<HTMLElement, { fp: string }>()
   let engine: SkimEngine | null = null
@@ -267,6 +274,21 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
         addedRoots === null ? allLines : dedupeEntries(addedRoots.flatMap((r) => adapter.linesIn(r)))
       examined += targets.length
       applyEntries(targets, stepKey)
+      foldPass(pool, stepKey, targets)
+    }
+
+    /**
+     * 折叠 pass (只碰本次 targets — 增量批次 = 变更子树行, 禁止全池重扫):
+     * 连续无标注段 (≥3) 隐藏 + 段首占位行。页面原生折叠区内的行让位
+     * (该区自带展开 UX, skim 不重复折叠); 用户展开过的段不复活 (userExpanded)。
+     */
+    const foldPass = (_pool: HTMLElement, stepKey: string, targets: LineEntry[]): void => {
+      if (!folds.enabled || targets.length === 0) return
+      const { nativeFoldOf } = adapter
+      const eligible = nativeFoldOf === undefined ? targets : targets.filter((t) => !nativeFoldOf(t.el))
+      if (eligible.length === 0) return
+      const runs = foldRuns(eligible, (no) => annotations.has(adapter.lineKey(stepKey, no)))
+      folds.applyPool(stepKey, runs, eligible)
     }
 
     /** 池内容漂移 (M3): 作废旧标注 (前缀键) + 剥离 DOM 痕迹含签名 → 强制整池重对齐重注入。 */
@@ -274,6 +296,8 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
       const prefix = adapter.poolKeyPrefix(adapter.stepKeyOf(pool, doc))
       for (const k of annotations.keys()) if (k.startsWith(prefix)) annotations.delete(k)
       injector.clearPool(pool)
+      folds.clearPool(pool)
+      folds.clearExpandedPrefix(`${prefix}`)
     }
 
     if (!opts.mutations) {
@@ -284,8 +308,11 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
       const addedEls: Element[] = []
       for (const m of opts.mutations) {
         for (const n of m.addedNodes) {
-          // 自家 UI (overlay/fab) 渲染也走 body observer — 过滤, 防自激励重放
-          if (n.nodeType === 1 && !(n as Element).closest('#lsk-overlay,#lsk-fab')) {
+          // 自家 UI (overlay/fab/fold 占位行) 渲染也走 body observer — 过滤, 防自激励重放
+          if (
+            n.nodeType === 1 &&
+            !(n as Element).closest('#lsk-overlay,#lsk-fab,.lsk-fold-ph,#lsk-inline-style,#lsk-fold-style')
+          ) {
             addedEls.push(n as Element)
           }
         }
@@ -306,6 +333,39 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
     report.sync.linesExamined += examined
     report.sync.lastExamined = examined
     report.inline = { ...injector.stats, enabled: true }
+  }
+
+  /** 存在未被任何已对齐池段覆盖的命中行 (forgejo 未渲染 step 的自动展开判定)。 */
+  function hiddenHitExists(): boolean {
+    const covered = (full: number): boolean => {
+      for (const a of ctx.aligns.values()) if (a.inverse.has(full)) return true
+      return false
+    }
+    for (const s of loaded) {
+      if (!s.ok) continue
+      for (const blk of s.result.blocks) {
+        for (let f = blk.start_line - 1; f < blk.end_line; f++) if (!covered(f)) return true
+      }
+    }
+    return false
+  }
+
+  /**
+   * 自动展开 (任务③): 含命中行的页面原生折叠区 → 程序化展开 (adapter 定义折叠语义)。
+   * 防循环: expandedFolds 外置 Set 只展开一次; 展开引发的 DOM 增长走既有 replay。
+   * inline off 时不展开 (展开是为了看见命中, 命中呈现已关)。
+   */
+  function autoExpand(): void {
+    if (!injector.enabled || !adapter.foldables) return
+    const probe: FoldProbe = {
+      hasHitLine: (key) => annotations.has(key),
+      hasHiddenHit: () => hiddenHitExists(),
+    }
+    for (const f of adapter.foldables(doc, probe)) {
+      if (expandedFolds.has(f.key)) continue
+      expandedFolds.add(f.key)
+      f.expand()
+    }
   }
 
   // ---- 数据装载: abi 分派 (扩展=SW RPC / 其余=本地 wasm) → 规则 (cache-first, 版本协商用 abi 版本) → 源取数 + skim ----
@@ -371,8 +431,12 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
       return
     }
     syncInline({ replay: true, mutations: batch })
+    autoExpand()
   }, REPLAY_DEBOUNCE_MS)
   driver.start(adapter.observeRoot(doc))
+  // 自动展开在 observer 启动后调用: 展开引发的页面渲染 (懒加载/折叠头点击) 必须
+  // 被 replay 链路捕获 — 放在 start 之前会丢同步增长的 mutation (fold=1 实测教训)。
+  autoExpand()
   report.timing.total = Math.round(performance.now() - t0)
   report.ready = true
   console.debug('[logskim] ready', report)
@@ -452,7 +516,9 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
     ctx.aligns.clear()
     report.align = []
     injector.clearAll()
+    folds.clearAll()
     syncInline()
+    autoExpand()
     renderLoadedSources()
   }
 

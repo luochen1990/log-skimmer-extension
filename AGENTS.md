@@ -6,7 +6,8 @@
 ## 布局
 
 - `src/` — TypeScript (严格模式, ESM 源 → esbuild IIFE 产物):
-  - `types.ts` — 协议类型 SSOT: SkimResult JSON (引擎 serde 镜像) / bundle 契约 / Adapter 接口 / 诊断与报告面。
+  - `types.ts` — 协议类型 SSOT: SkimResult JSON (引擎 serde 镜像) / bundle 契约 / Adapter 接口
+    (含 `foldables`/`nativeFoldOf` 原生折叠区契约) / 诊断与报告面。
   - `config.ts` — 常量 SSOT (bundle URL / 版本 / GM 键 / 超时)。
   - `host.ts` — 宿主服务抽象 (storage + 跨域 GET): 三实现按探测择一
     (userscript GM_* → chrome.storage.local+fetch → localStorage 降级), GM 优先于 chrome
@@ -14,17 +15,23 @@
   - `sw.ts` — MV3 background service worker 入口: 扩展形态的 wasm 计算引擎宿主
     (消息协议 `{t:'v'}`/`{t:'skim'}`, 与 `core/abi-rpc.ts` 成对 SSOT; engine.wasm 包内裸文件)。
   - `controller.ts` — 编排: 适配器探测 → **abi 分派** (extension=SW RPC / 其余=本地 wasm)
-    → 规则 (版本协商用 abi 侧版本) → 取数+skim → 呈现双轨 → observer 重放。
+    → 规则 (版本协商用 abi 侧版本) → 取数+skim → 呈现双轨 → observer 重放 → 自动展开。
   - `core/` — 页面无关核心: `abi.ts` (wasm 薄壳, T1 ABI 纪律, 模块级 compile 缓存;
     `SkimAbi.skimJson` 统一 async — RPC 通道兼容) / `abi-rpc.ts` (SkimAbi 的 SW 消息通道
     实现, 扩展形态专用) / `engine.ts` / `align.ts`
     (forgejo 两指针对齐: 归一化四件套 + **首行锚定** — DOM 行集可对应全量任意连续段,
     非仅前缀; `poolFingerprint` 池漂移哨兵 SSOT) / `rules.ts`
     (bundle 校验/缓存/版本协商/作废) / `semver.ts` / `intent.ts` (intent 优先级/配色/
-    块主 intent 单点) / `inline.ts` (幂等注入, clearAll/clearPool) / `observer.ts` (重放驱动) /
-    `overlay.ts` (摘要面板)。
-  - `adapters/` — 页面知识孤岛: `github.ts` (data-log-url + data-index 直映, deferProbe) /
-    `forgejo.ts` (job API + 对齐映射)。新增 CI 平台 = 新增一个 adapter 文件。
+    块主 intent 单点) / `tokens.ts` (面板设计 token 单点: 色板/字体/圆角/阴影,
+    prefers-color-scheme 暗色, shadow 内 `:host` 作用域) / `inline.ts` (幂等注入,
+    纯 CSS icon (::before + data-lsk-intent), clearAll/clearPool) / `fold.ts`
+    (流内噪音折叠: `foldRuns` 纯函数 + FoldInjector — 连续无标注段 ≥3 隐藏 + 段首占位行,
+    userExpanded 外置状态) / `observer.ts` (重放驱动) / `overlay.ts` (摘要面板,
+    **Shadow DOM 隔离**: #lsk-overlay/#lsk-fab 为 open shadow host, 布局关键属性 inline
+    落 host, 内部样式经 tokens 注入 shadow — 与宿主页样式双向隔离)。
+  - `adapters/` — 页面知识孤岛: `github.ts` (data-log-url + data-index 直映, deferProbe,
+    foldables = `##[group]` 折叠 details) / `forgejo.ts` (job API + 对齐映射, foldables =
+    未渲染 step 的 summary 点击)。新增 CI 平台 = 新增一个 adapter 文件。
 
 ### CSP 实测事实 (2026-10-26/27, 形态架构依据)
 
@@ -43,17 +50,35 @@ CSP fixture 用例 = 防 "wasm 挪回页面世界" 的回归锚。userscript 形
   → gzip+base64 内嵌 + esbuild + userscript banner) /
   `serve.mjs` (8801 静态服务, CORS 全开, `/_status/<code>/` 状态码仿真) /
   `make-local-bundle.mjs` (规则仓 checkout → fixtures bundle, dev 工具)。
-- `e2e/` — Playwright: `harness.ts` (GM shim + 注入) + 五个 spec (github 主链路+M1/M4 /
+- `e2e/` — Playwright: `harness.ts` (GM shim + 注入) + 六个 spec (github 主链路+M1/M4 /
   degrade 含 M2 自愈 / forgejo fixture (M3 grown/同数异容) / forgejo 活体 /
-  engine-version 版本协商专题) + `shots/` 交付截图。
+  engine-version 版本协商专题 / inline-fold 流内折叠×自动展开×暗色 行为契约)
+  - `shots/` 交付截图。e2e fixture 服务端口默认 8801, `LSK_E2E_PORT` 可覆盖
+    (同仓多 worktree 并行 e2e 的逃生口 — playwright reuseExistingServer 会复用任意来源的
+    同端口服务, fixture 必须同源, 见 playwright.config.ts / serve.mjs / harness.ts)。
 
 ## 实现约定
 
 - **架构三不变式** (spike T4 结论, 违反即架构回归): ① 状态外置 (标注按 `(source, line)`
   外置, 行 DOM 是临时物); ② 幂等 sync 是唯一注入路径 (初始 pass 与 observer 重放共用
   `syncInline`, 增量批次只扫 mutation 涉及的新节点 — `sync.lastExamined` 是增量性的可断言面;
-  自家 UI 变更 (#lsk-overlay/#lsk-fab) 在批次入口过滤, 防自激励); ③ 事件驱动重放
+  自家 UI 变更 (#lsk-overlay/#lsk-fab/折叠占位行) 在批次入口过滤, 防自激励); ③ 事件驱动重放
   (任何重建/懒加载/虚拟化收敛为 "sync 一遍")。
+- **流内折叠契约 (fold.ts, v0.2.0)**: 连续无标注行段 (≥FOLD_MIN=3) 加 class 隐藏 —
+  **绝不 remove/detach 页面节点**; 段首插入占位行 `⋯ N lines` (外来节点, 依赖幂等重放重建);
+  折叠计算只吃当次 sync 的 targets (增量批次 = 变更子树行, 禁止全池重扫); 用户展开过的段记
+  userExpanded (外置 Set, 重放不复活; poolKeyPrefix 前缀失效随 stripPool); 标注行与折叠互斥
+  (`.lsk-inline.lsk-folded` 恒为 0, e2e 断言面)。页面原生折叠区内的行让位
+  (`adapter.nativeFoldOf`, github = group details 内)。
+- **自动展开契约 (adapter.foldables, v0.2.0)**: 含命中的页面原生折叠区程序化展开
+  (github = `##[group]` details 含命中行 (probe.hasHitLine 按 lineKey 区间判定);
+  forgejo = 未渲染 step 且存在未被已对齐段覆盖的命中 (probe.hasHiddenHit — 未渲染 step 的
+  行范围无法先验, 取保守 "可能有", 单 step/前缀场景精确, 多 step 可能过量展开一次, 有界))。
+  防循环: controller 侧 expandedFolds 外置 Set 只展开一次; 展开必须在 `driver.start()` 之后
+  (展开引发的 DOM 增长必须被 replay 捕获 — 前置会丢同步 mutation, fold=1 实测教训)。
+- **折叠 × 虚拟化级联 (已知行为, 非缺陷)**: 全量折叠 → 页面高度骤缩 → 浏览器滚动锚定补偿 →
+  虚拟化窗口滑动 → 新 cluster attach → 再折叠的级联, 有界收敛 (e2e 需 settle 等待);
+  隐藏行的 scrollIntoView 失效 — 测试滚动一律走像素估算。
 - **池漂移协议 (contentAligned 适配器)**: 池指纹 (`poolFingerprint` = 行数+全行文本,
   同数异容可察, 首末采样有中段盲区故取全量) 变化 = 对齐失效 → 先 `stripPool` (作废该池
   前缀键标注 + `clearPool` 剥离 DOM 痕迹含幂等签名) 再整池重对齐重注入 — 残留旧标注会

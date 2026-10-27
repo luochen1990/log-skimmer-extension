@@ -60,6 +60,11 @@ class StepView {
     this.details = cs.querySelector('details.js-checks-log-details');
     this.container = cs.querySelector('.js-checks-log-display-container');
     this.stepNo = cs.getAttribute('data-number');
+    // ##[group] 折叠建模 (opt-in: data-group-fold; 真实 GitHub 的 group 折叠头 class
+    // 待登录态校准, fixture 契约 = details.lsk-group[data-gstart][data-gend])
+    this.groupFold = cs.hasAttribute('data-group-fold');
+    this.groups = [];      // [{s, e}] 0-based 闭区间 (含头/尾行)
+    this.groupAt = new Map(); // 头行 idx → group
     this.clusters = [];
     this.details.addEventListener('toggle', () => { if (this.details.open) this.render(); });
   }
@@ -73,6 +78,8 @@ class StepView {
   /** 展开 = 清空重建 (T3: parser.setData("") + logsContainer.textContent="") */
   async render() {
     this.lines = parseLines(await this.text());
+    if (this.groupFold) this.computeGroups();
+    else { this.groups = []; this.groupAt.clear(); }
     this.container.textContent = '';
     this.clusters = [];
     for (let s = 0; s < this.lines.length; s += CLUSTER) {
@@ -89,6 +96,19 @@ class StepView {
     window.__ghSim.renders++;
     window.__ghSim.clusters = this.clusters.length;
     this.updateWindow();
+  }
+
+  /** ##[group]..##[endgroup] → 折叠区 (fixture 契约: group 不跨 cluster; 未闭合忽略) */
+  computeGroups() {
+    this.groups = []; this.groupAt.clear();
+    let s = -1;
+    this.lines.forEach((l, i) => {
+      if (l.type === 'group') s = i;
+      else if (l.type === 'endgroup' && s >= 0) {
+        const g = { s, e: i };
+        this.groups.push(g); this.groupAt.set(s, g); s = -1;
+      }
+    });
   }
 
   /** 视口 ±50 行窗口 (T3: t-50<=endIndex && t+50>=startIndex 等价实现) */
@@ -108,7 +128,25 @@ class StepView {
     cl.w.style.height = '';
     cl.w.textContent = '';
     const frag = document.createDocumentFragment();
-    for (let i = cl.start; i <= cl.end; i++) frag.appendChild(this.lineEl(i));
+    let i = cl.start;
+    while (i <= cl.end) {
+      const g = this.groupAt.get(i);
+      if (g) {
+        // group 折叠区: 头行为 summary (常显), 体行 data-index 保留在 DOM (收起即隐藏)
+        const d = document.createElement('details');
+        d.className = 'lsk-group';
+        d.dataset.gstart = g.s; d.dataset.gend = g.e;
+        const sum = document.createElement('summary');
+        sum.appendChild(this.lineEl(g.s));
+        d.appendChild(sum);
+        for (let j = g.s + 1; j <= g.e; j++) d.appendChild(this.lineEl(j));
+        frag.appendChild(d);
+        i = g.e + 1;
+      } else {
+        frag.appendChild(this.lineEl(i));
+        i++;
+      }
+    }
     cl.w.appendChild(frag);
     cl.attached = true;
     window.__ghSim.attaches++;

@@ -131,6 +131,22 @@ export interface AdapterCtx {
   aligns: Map<string, AlignResult>
 }
 
+/** 自动展开探测面 (controller 实现, adapter 消费; 见 Adapter.foldables)。 */
+export interface FoldProbe {
+  /** 某外置状态 key (lineKey) 是否命中标注 — github group 区间命中判定。 */
+  hasHitLine: (lineKey: string) => boolean
+  /** 存在尚未被任何已对齐池段覆盖的命中行 — forgejo 未渲染 step 候选判定。 */
+  hasHiddenHit: () => boolean
+}
+
+/** 一个可程序化展开的页面原生折叠区。 */
+export interface Foldable {
+  /** 外置去重 key (controller 记录, 只展开一次防循环)。 */
+  key: string
+  /** 触发页面原生展开 (之后 DOM 增长走既有 replay)。 */
+  expand(): void
+}
+
 export interface Adapter {
   name: string
   /**
@@ -177,6 +193,16 @@ export interface Adapter {
    * 行数变化须整池重对齐; false = 坐标直映 (github) → 增量只处理新节点。
    */
   contentAligned: boolean
+  /**
+   * 页面原生折叠区自动展开 (含命中行才展开; 防循环由 controller 的外置 Set 去重)。
+   * 缺省 = 该平台无自动展开面。
+   */
+  foldables?(doc: Document, probe: FoldProbe): Foldable[]
+  /**
+   * 行元素是否在页面原生折叠区内 (该区自带展开/收起 UX, skim 折叠让位不免)。
+   * 缺省 = 无原生折叠面 (全部行可折)。
+   */
+  nativeFoldOf?(el: Element): boolean
 }
 
 // ---------- 诊断 ----------

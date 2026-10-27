@@ -1,7 +1,9 @@
 // inline.ts — 原生流内辅助注入 (呈现双轨之辅轨)。
 // 契约: 输入 行级标注 Map<lineKey, {intent, category, rule}> (状态外置, 由 controller
-//       依 adapter 坐标映射生成); 对 DOM 中在场的行施加 intent 边条/背景/悬浮说明。
+//       依 adapter 坐标映射生成); 对 DOM 中在场的行施加 intent 边条/背景/icon/悬浮说明。
 // 幂等: 已注入行跳过 (data-lsk 签名比对); 行被虚拟化重建后由 ReplayDriver 重放。
+// icon: 纯 CSS (::before + attr/data-lsk-intent attribute-selector) — 零外来子节点 =
+//       零重放成本; 悬浮说明 data-lsk-tip 保留。
 // 不持有任何页面选择器知识 — 选择器全在 adapter (lineKey 的语义也由 adapter 定义)。
 
 import type { Intent } from '../types.ts'
@@ -25,8 +27,17 @@ export class InlineInjector {
     st.id = 'lsk-inline-style'
     st.textContent = `
 .lsk-inline { border-left: 3px solid var(--lsk-c) !important; background: color-mix(in srgb, var(--lsk-c) 12%, transparent) !important; }
+.lsk-inline[data-lsk-intent]::before { content: ''; position: absolute; left: 5px; top: 4px;
+  width: 13px; height: 13px; font: 700 10px/13px ui-monospace, SFMono-Regular, monospace;
+  text-align: center; pointer-events: none; }
+.lsk-inline[data-lsk-intent='failure']::before { content: '✕'; color: ${INTENT_COLOR.failure}; }
+.lsk-inline[data-lsk-intent='warning']::before { content: '⚠'; color: ${INTENT_COLOR.warning}; }
+.lsk-inline[data-lsk-intent='info']::before { content: 'ℹ'; color: ${INTENT_COLOR.info}; }
 .lsk-inline:hover::after { content: attr(data-lsk-tip); position: absolute; left: calc(100% - 2px); transform: translateX(-100%) translateY(-100%);
-  background: #24292f; color: #fff; font: 11px/1.4 ui-monospace, monospace; padding: 3px 8px; border-radius: 4px; white-space: nowrap; z-index: 99999; }`
+  background: #24292f; color: #fff; font: 11px/1.4 ui-monospace, monospace; padding: 3px 8px; border-radius: 4px; white-space: nowrap; z-index: 99999; }
+@media (prefers-color-scheme: dark) {
+  .lsk-inline:hover::after { background: #6e7681; color: #0d1117; }
+}`
     doc.head.appendChild(st)
     this.styleEl = st
   }
@@ -37,6 +48,7 @@ export class InlineInjector {
     const c = INTENT_COLOR[anno.intent]
     lineEl.dataset.lsk = anno.sig
     lineEl.classList.add('lsk-inline')
+    lineEl.dataset.lskIntent = anno.intent
     lineEl.style.setProperty('--lsk-c', c)
     lineEl.style.position = lineEl.style.position || 'relative'
     lineEl.dataset.lskTip = `skim: ${anno.intent}/${anno.category} [${anno.rule}]`
@@ -60,6 +72,7 @@ export class InlineInjector {
     delete el.dataset.lsk
     delete el.dataset.lskKey
     delete el.dataset.lskTip
+    delete el.dataset.lskIntent
     el.style.removeProperty('--lsk-c')
     // position 仅清我们设的 relative; 若页面本就 relative 则误清无害 (布局无依赖)
     if (el.style.position === 'relative') el.style.removeProperty('position')

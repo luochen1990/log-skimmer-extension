@@ -19,6 +19,7 @@ import type {
   Adapter,
   AdapterCtx,
   AlignResult,
+  Foldable,
   LineEntry,
   LoadedSource,
   LogSource,
@@ -192,5 +193,23 @@ export const forgejoAdapter = {
       }
     }
     return false
+  },
+
+  /**
+   * 原生折叠区自动展开: 未渲染 step (懒加载折叠) 且存在未被任何已对齐段覆盖的命中行
+   * → 程序化点击折叠头。注意: 未渲染 step 的行范围无法先验得知 (对齐需要行在场),
+   * "含命中" 判定取保守形态 (可能有 → 展开); 单 step/前缀场景精确, 多 step 可能过量
+   * 展开一次 (有界: 外置 Set 去重, 不回折), 展开后对齐即知细节。
+   */
+  foldables(doc, probe): Foldable[] {
+    if (!probe.hasHiddenHit()) return []
+    const sections = [...doc.querySelectorAll<HTMLElement>('.job-step-section')]
+    return sections.flatMap((sec, i) => {
+      const logs = sec.querySelector('.job-step-logs')
+      if (logs?.querySelector('.job-log-line')) return [] // 已渲染 (行在场)
+      const summary = sec.querySelector<HTMLElement>('.job-step-summary')
+      if (!summary) return []
+      return [{ key: `fj-step:${sec.id || i}`, expand: () => summary.click() }]
+    })
   },
 } satisfies Adapter

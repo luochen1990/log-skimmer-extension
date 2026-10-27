@@ -8,7 +8,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const PORT = 8801
+// 端口默认 8801; LSK_E2E_PORT 可覆盖 (同仓多 worktree 并行 e2e 的逃生口 —
+// playwright reuseExistingServer 会复用任意来源的同端口服务, fixture 必须同源)。
+const PORT = Number(process.env.LSK_E2E_PORT ?? 8801)
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
