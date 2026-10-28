@@ -14,3 +14,4 @@ playwright-report/
 .direnv/
 .env
 *.log
+engine/ # CI 引擎仓 checkout (LOG_SKIMMER_WASM_SRC), 非本仓内容
