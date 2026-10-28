@@ -158,3 +158,7 @@ CSP fixture 用例 = 防 "wasm 挪回页面世界" 的回归锚。userscript 形
 `just check` = lint (biome, --error-on-warnings) → build (esbuild, 生成 src/generated/) →
 typecheck (tsc --noEmit) → unit (node --test) → e2e (playwright, webServer 自管 8801)。
 构建在 typecheck 前是刻意的: tsc 需要构建期生成的 wasm-b64 模块。
+
+GitHub Actions (`.github/workflows/ci.yml`, push/PR) 复刻同链: wasm 供给 =
+checkout 引擎仓镜像至 `engine/` + rust stable/wasm32, 经 `LOG_SKIMMER_WASM_SRC`
+注入 build.mjs。`engine/` 是外来 checkout — biome includes 与 .gitignore 双排除。

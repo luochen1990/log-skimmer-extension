@@ -14,8 +14,8 @@
 //       被拒 (2026-10-27 实测), userscript 不可用于 github.com)。
 // wasm 供给 (正式源): 源目录 = 引擎仓 master checkout (cargo + wasm32 工具链
 //   经其 devShell 提供 — `nix develop $SRC -c just check` 在本仓跑通全链)。
-//   LOG_SKIMMER_WASM_SRC 可覆盖 (调试/镜像)。生产 CI 未来的源 = web 仓 CI 自建
-//   (runner 装 rust + wasm32 target 后 checkout 引擎仓自建, 不再依赖 /tmp worktree)。
+//   LOG_SKIMMER_WASM_SRC 可覆盖 (调试/镜像)。生产 CI 的源 = GitHub Actions 自建
+//   (.github/workflows/ci.yml: checkout 引擎仓镜像至 engine/ + rust/wasm32)。
 
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
