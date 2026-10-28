@@ -162,3 +162,8 @@ typecheck (tsc --noEmit) → unit (node --test) → e2e (playwright, webServer �
 GitHub Actions (`.github/workflows/ci.yml`, push/PR) 复刻同链: wasm 供给 =
 checkout 引擎仓镜像至 `engine/` + rust stable/wasm32, 经 `LOG_SKIMMER_WASM_SRC`
 注入 build.mjs。`engine/` 是外来 checkout — biome includes 与 .gitignore 双排除。
+
+发布流水线 = 同文件内嵌: tag `v*` push 触发同链 (check job 含 tag↔package.json
+版本一致性预检), 全绿后 `release` job (needs: check) 经 artifact 交接产物 —
+zip + userscript + SHA256SUMS 挂 GitHub Release。发版操作 = bump package.json
+version → commit → `git tag vX.Y.Z && git push --tags`。

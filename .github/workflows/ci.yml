@@ -4,11 +4,16 @@
 #   经 LOG_SKIMMER_WASM_SRC 指给 build.mjs, 其内部 execFileSync('cargo') 现编。
 # build 必须先于 typecheck/unit/e2e — src/generated/ (version/wasm-b64) 是
 # 构建生成物且被 gitignore, 顺序颠倒则 tsc/node 直接红。
+#
+# 发布流水线 ("过了 ci 直接发"): tag push (v*) 走同一条链, check 全绿后
+# release job (needs: check, tag 门控) 接管 — 产物经 upload/download-artifact
+# 交接 (不重复构建), 挂 sha256 清单, gh release create 发布。
 name: ci
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
 
 concurrency:
@@ -44,3 +49,56 @@ jobs:
       - run: npm run typecheck
       - run: npm run unit
       - run: npm run e2e
+      # 发布预检 (仅 tag run): tag 名 ↔ package.json 版本一致, 防错版发布
+      - name: tag↔version 一致性
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: test "v$(jq -r .version package.json)" = "$GITHUB_REF_NAME"
+      # 产物交接给 release job (upload-artifact 剥共同祖先 dist/ → 扁平存)
+      - name: 上传发布产物
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: |
+            dist/log-skimmer-extension.zip
+            dist/log-skimmer.user.js
+          if-no-files-found: error
+
+  release:
+    needs: check
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+      - name: sha256 清单
+        run: cd dist && sha256sum * > SHA256SUMS
+      - name: 创建 Release 并挂产物
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat > notes.md <<'EOF'
+          **安装** (商店上架审核中, 先走 Releases 渠道)
+
+          - **Chrome (MV3 扩展)**: 下载 `log-skimmer-extension.zip` → 解压 →
+            `chrome://extensions` → 开发者模式 → **加载已解压的扩展程序** → 选 `extension/` 目录。
+            (unpacked 已知代价: Chrome 启动时的"开发者模式扩展"提示气泡, 商店上架后消解)
+          - **Tampermonkey** (Forgejo 等 CSP 宽松宿主): 点击 `log-skimmer.user.js` 安装。
+          - 完整性校验: `sha256sum -c SHA256SUMS`。
+
+          引擎 (wasm) 已内嵌离线; 规则 bundle 运行期拉取 (唯一网络依赖)。
+          完整说明见 [README](https://github.com/luochen1990/log-skimmer-extension#readme)。
+
+          ---
+
+          ## Changelog
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "log-skimmer-extension $GITHUB_REF_NAME" \
+            --notes-file notes.md --generate-notes

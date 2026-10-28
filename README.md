@@ -24,12 +24,18 @@ CI 失败日志动辄上万行, 真正的失败证据往往只有几十行。log
 
 ## 安装 (Chrome 扩展 — 推荐, github.com 唯一可靠形态)
 
-1. 下载本仓产物 `dist/log-skimmer-extension.zip` 并解压 (或直接用 `dist/extension/` 目录);
+> [!TIP]
+> Chrome Web Store 上架审核中 — 审核通过前, 从 [**Releases**](https://github.com/luochen1990/log-skimmer-extension/releases/latest)
+> 下载最新 `v*` 版产物 (构建出自 CI 全绿流水线, 附 sha256 校验)。
+
+1. 从 [Releases](https://github.com/luochen1990/log-skimmer-extension/releases/latest)
+   下载 `log-skimmer-extension.zip` 并解压;
 2. Chrome 打开 `chrome://extensions` → 右上角开启**开发者模式** → **加载已解压的扩展程序**
-   (Load unpacked) → 选择 `extension/` 目录;
+   (Load unpacked) → 选择解压出的 `extension/` 目录;
 3. 打开任一 GitHub Actions job 页
    (`https://github.com/<owner>/<repo>/actions/runs/<run>/job/<job>`)
    — 右下角出现 **skim** 按钮。
+   (unpacked 安装的已知代价: Chrome 启动时提示"开发者模式扩展"气泡, 商店上架后消解。)
 
 > [!NOTE]
 > 为何 github.com 必须用扩展: github.com 页面 CSP 为 `script-src …` (无 `wasm-unsafe-eval`),
@@ -40,7 +46,9 @@ CI 失败日志动辄上万行, 真正的失败证据往往只有几十行。log
 ## 安装 (Tampermonkey userscript — CSP 宽松环境备选, 如自托管 Forgejo)
 
 1. 浏览器装 [Tampermonkey](https://www.tampermonkey.net/);
-2. 下载 `dist/log-skimmer.user.js` 拖入 Tampermonkey 安装;
+2. 从 [Releases](https://github.com/luochen1990/log-skimmer-extension/releases/latest)
+   点击 `log-skimmer.user.js` — Tampermonkey 识别 `==UserScript==` 头接管安装
+   (或下载后拖入管理器);
 3. 打开 Forgejo job 页 (`/<owner>/<repo>/actions/runs/<run>/jobs/<idx>`) — 右下角出现 **skim** 按钮。
 
 无脚本管理器也能跑 (storage 降级为 localStorage, 规则拉取受 CORS 限制可能失败)。
