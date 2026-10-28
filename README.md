@@ -27,7 +27,6 @@ CI 失败日志动辄上万行, 真正的失败证据往往只有几十行。log
 > [!TIP]
 > Chrome Web Store 上架审核中 — 审核通过前, 从 [**Releases**](https://github.com/luochen1990/log-skimmer-extension/releases/latest)
 > 下载最新 `v*` 版产物 (构建出自 CI 全绿流水线, 附 sha256 校验)。
-
 1. 从 [Releases](https://github.com/luochen1990/log-skimmer-extension/releases/latest)
    下载 `log-skimmer-extension.zip` 并解压;
 2. Chrome 打开 `chrome://extensions` → 右上角开启**开发者模式** → **加载已解压的扩展程序**
