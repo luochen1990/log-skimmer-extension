@@ -1,5 +1,5 @@
 // serve.mjs — 本地静态服务 (fixture 页 + dist 产物 + bundle; 零依赖)。
-// 端口固定 8801; CORS 全开 (跨域 GM shim fetch 用 — forgejo 活体 e2e 从 3999 页面
+// CORS 全开 (跨域 GM shim fetch 用 — forgejo 活体 e2e 从 3999 页面
 // 拉本服务的 bundle)。状态码仿真: /_status/<code>/<path> 以 <code> 响应 (降级路径 e2e)。
 
 import fs from 'node:fs'
@@ -8,8 +8,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-// 端口默认 8801; LSK_E2E_PORT 可覆盖 (同仓多 worktree 并行 e2e 的逃生口 —
-// playwright reuseExistingServer 会复用任意来源的同端口服务, fixture 必须同源)。
+// 端口 SSOT = playwright.config.ts (缺省挑空闲端口, LSK_E2E_PORT 显式时固定);
+// 本服务只消费该变量 (config 进程与 serve 同 env, workers 亦同源)。
 const PORT = Number(process.env.LSK_E2E_PORT ?? 8801)
 const MIME = {
   '.html': 'text/html; charset=utf-8',
