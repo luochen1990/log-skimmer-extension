@@ -5,6 +5,7 @@
 
 ## 布局
 
+- `docs/store/` — Chrome Web Store 发布材料包 (SSOT): `store-listing.md` (商店字段+审核答辩 notes) / `privacy-policy.md` (隐私政策, 零采集) / `submission-guide.md` (发布者操作手册) / `assets/` (商店图形素材, 由 `just store-shots` 生成 — 1280×800 截图 ×3 + 440×280 promo, UI 改版后重跑保持新鲜)。
 - `src/` — TypeScript (严格模式, ESM 源 → esbuild IIFE 产物):
   - `types.ts` — 协议类型 SSOT: SkimResult JSON (引擎 serde 镜像) / bundle 契约 / Adapter 接口
     (含 `foldables`/`nativeFoldOf` 原生折叠区契约) / 诊断与报告面。

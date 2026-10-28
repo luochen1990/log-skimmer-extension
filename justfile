@@ -32,6 +32,10 @@ e2e: build
 serve: install
     npm run serve
 
+# CWS 上架素材 (1280×800 截图 ×3 + 440×280 promo → docs/store/assets/, 入库工件)
+store-shots: build
+    LSK_STORE_SHOTS=1 npm run e2e -- e2e/store-shots.spec.ts
+
 check: lint build typecheck unit e2e
     @echo "=== just check 全绿 ==="
 

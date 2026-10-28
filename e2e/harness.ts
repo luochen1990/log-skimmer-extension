@@ -35,9 +35,18 @@ export const defaultSeed = (): GmSeed => ({ 'lsk:bundleUrl': BUNDLE_URL })
 /** 构造一个已装 GM shim 的页面 (每次新 context, seed 可预置 GM storage)。 */
 export async function newSkimPage(
   browser: Browser,
-  opts: { seed?: GmSeed; noGm?: boolean } = {},
+  opts: {
+    seed?: GmSeed
+    noGm?: boolean
+    /** 视口 (缺省 1280×900, e2e 常规); CWS 上架素材要求 1280×800 整。 */
+    viewport?: { width: number; height: number }
+    colorScheme?: 'light' | 'dark'
+  } = {},
 ): Promise<{ context: BrowserContext; page: Page }> {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const context = await browser.newContext({
+    viewport: opts.viewport ?? { width: 1280, height: 900 },
+    ...(opts.colorScheme ? { colorScheme: opts.colorScheme } : {}),
+  })
   if (!opts.noGm) {
     await context.addInitScript(gmShim, opts.seed ?? defaultSeed())
   }
