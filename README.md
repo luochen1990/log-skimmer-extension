@@ -1,4 +1,4 @@
-# log-skimmer-web
+# log-skimmer-extension
 
 > log-skimmer 生态的浏览器交付面: 一个 Chrome 扩展 (MV3) + Tampermonkey userscript 备选,
 > 在 GitHub Actions / Forgejo 的 CI 失败日志页上做**行级失败高亮 + skim 摘要面板** —

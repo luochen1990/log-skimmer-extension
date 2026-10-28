@@ -1,4 +1,4 @@
-# log-skimmer-web 维护者文档
+# log-skimmer-extension 维护者文档
 
 > 职责边界: 本仓 = log-skimmer 生态的浏览器交付面 (userscript)。README 写接口面 (安装/使用),
 > 本文写实现约定 (给维护者与 agent)。跨仓契约的 SSOT 不在此处 — 见下表引用。

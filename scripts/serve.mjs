@@ -46,4 +46,4 @@ http
     })
     fs.createReadStream(p).pipe(res)
   })
-  .listen(PORT, '127.0.0.1', () => console.log(`log-skimmer-web static: http://127.0.0.1:${PORT}/`))
+  .listen(PORT, '127.0.0.1', () => console.log(`log-skimmer-extension static: http://127.0.0.1:${PORT}/`))
