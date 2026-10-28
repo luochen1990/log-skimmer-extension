@@ -1,0 +1,46 @@
+# ci.yml — 复刻 just check 链: lint → build → typecheck → unit → e2e。
+# wasm 供给 = runner 自建 (scripts/build.mjs 头注释预留的路线):
+#   checkout 引擎仓 (GitHub 同树镜像) + rust stable + wasm32 target,
+#   经 LOG_SKIMMER_WASM_SRC 指给 build.mjs, 其内部 execFileSync('cargo') 现编。
+# build 必须先于 typecheck/unit/e2e — src/generated/ (version/wasm-b64) 是
+# 构建生成物且被 gitignore, 顺序颠倒则 tsc/node 直接红。
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      LOG_SKIMMER_WASM_SRC: ${{ github.workspace }}/engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: luochen1990/log-skimmer # 引擎仓 (同树镜像, master 与 forgejo 同 SHA)
+          path: engine
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: engine
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm run unit
+      - run: npm run e2e
