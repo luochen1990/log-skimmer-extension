@@ -14,8 +14,10 @@ export const RULES_BUNDLE_URLS = [
 /** bundle manifest.format_version 期望值 (存在且不匹配即拒收; 键可省略 — 契约同 min_engine_version)。 */
 export const BUNDLE_FORMAT_VERSION = 2
 
-/** 缓存的 bundle 超过该天数 → overlay 显示 stale 提示 (不阻断功能)。 */
-export const RULES_STALE_DAYS = 7
+/** 缓存的 bundle 超过该天数 → stale: 面板提示 + SWR 后台重验证 (cache-first 渲染
+ * 路径不变, 新规则写缓存后于下次页面打开生效)。3 天对齐语料/规则周迭代节奏 —
+ * 规则传播上限 = 3 天 + 一次页面重开 (issue: 规则自动更新通路, 2026-10-29)。 */
+export const RULES_STALE_DAYS = 3
 
 /** 宿主 storage 键 (GM storage 与 chrome.storage.local 共用同一键空间语义)。 */
 export const HOST_KEYS = {

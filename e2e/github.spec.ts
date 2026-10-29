@@ -11,6 +11,8 @@ import {
   injectUserscript,
   type LskReport,
   newSkimPage,
+  readFixtureBundle,
+  staleCacheSeed,
   waitReady,
   waitSettled,
 } from './harness.ts'
@@ -322,6 +324,34 @@ test.describe('多源与增量', () => {
 })
 
 test.describe('rules bundle 多源 fallback', () => {
+  test('SWR: 过期缓存 → 先用缓存渲染 + 后台重验证写缓存 (新规则下次页面生效)', async ({ browser }) => {
+    // waitReady (非 waitSettled): stale 提示 diag 在 boot 中途即 push, waitSettled 的
+    // "ready || 有 diag" 判定会提前放行, 拿到 ready:false 的中间态快照。
+    const seed = staleCacheSeed(await readFixtureBundle(), 4) // > 3 天阈值 (RULES_STALE_DAYS)
+    const { context, page } = await newSkimPage(browser, { seed })
+    await page.goto(GITHUB_FIXTURE)
+    await page.waitForFunction('window.__ghSim && window.__ghSim.renders >= 1')
+    await injectUserscript(page)
+    const report = await waitReady(page)
+    // 前半: cache-first 渲染路径不变 (零等待, 不等网络)
+    expect(report.ready).toBe(true)
+    expect(report.rules).toMatchObject({ source: 'cache', stale: true, ruleCount: 165 })
+    // 后半: 后台重验证已把新 fetchedAt 写入缓存 (GM shim store 探针, 10s 内为 now)
+    await page.waitForFunction(
+      () => {
+        const raw = localStorage.getItem('lsk-gm-shim-store')
+        if (!raw) return false
+        const entry = JSON.parse(JSON.parse(raw)['lsk:rulesBundle'])
+        return Date.now() - entry.fetchedAt < 10_000
+      },
+      { timeout: 10_000 },
+    )
+    // 本会话不换引擎 (设计如此: 避免 mid-session 重排) — source 仍标 cache
+    const after = await getReport(page)
+    expect(after.rules?.source).toBe('cache')
+    await context.close()
+  })
+
   test('主源 500 → 镜像源 (jsDelivr) 成功', async ({ browser }) => {
     // 无 bundleUrlOverride (seed 置空) → 走默认候选列表; GM shim 的 fetch 走页面
     // 网络, context.route 可拦: 主源 500, 镜像源 serve 本地 bundle (ACAO:* 模拟 CDN)。

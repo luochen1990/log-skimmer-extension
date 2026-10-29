@@ -427,6 +427,23 @@ export async function boot(deps: BootDeps): Promise<BootOutcome> {
     })
   }
 
+  // SWR (stale-while-revalidate): 过期缓存先渲染 (零等待/离线安全), 后台静默重验证 —
+  // 只写缓存不动本会话 (换引擎 + reskim 留给下次 boot, 避免用户阅读中页面重排);
+  // 引擎拒收兜底 = boot 既有自愈 (下方 invalidateCache 路径)。失败静默: 旧缓存继续工作。
+  if (rulesLoad.stale && rulesLoad.source === 'cache') {
+    void rulesStore
+      .refresh()
+      .then((r) => {
+        console.info(
+          '[logskim] rules revalidated:',
+          r.ok
+            ? `${r.bundle.rules.length} rules (generated ${r.bundle.manifest.generated_at})`
+            : `failed, keeping cache (${r.diag.message})`,
+        )
+      })
+      .catch(() => {}) // 网络异常等 — 静默, 下次页面再试
+  }
+
   try {
     engine = await SkimEngine.create(abi, rulesJsonForWasm(bundle))
     await engineProbe(engine)
